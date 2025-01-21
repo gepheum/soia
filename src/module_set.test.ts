@@ -113,6 +113,8 @@ describe("module set", () => {
               { name: { text: "inner" } },
               { name: { text: "zoo" } },
             ],
+            numSlots: 4,
+            numSlotsInclRemovedNumbers: 4,
           },
           GetBar: {
             kind: "method",
