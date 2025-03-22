@@ -129,7 +129,7 @@ Like structs, the fields of an enum have a number, and the numbering can be expl
 
 ```d
 enum ExplicitNumbering {
-  // The numbers don't need to be consecutive
+  // The numbers don't need to be consecutive.
   FOO = 10;
   bar: string = 2;
 }
@@ -192,9 +192,72 @@ struct ImplicitNumbering {
 
 #### Primitive types
 
-#### Arrays
+*   `bool`: true or false
+*   `int32`: a signed 32-bits integer
+*   `int64`: a signed 64-bits integer
+*   `uint64`: an unsigned 64-bits integer
+*   `float32`: a 32-bits floating point number
+*   `float64`: a 64-bits floating point number
+*   `string`: a Unicode string
+*   `bytes`: a sequence of bytes
+*   `timestamp`: a specific instant in time represented as an integral number of milliseconds since the Unix epoch, from 100M days before the Unix epoch to 100M days after the Unix epoch
 
-#### Optionals
+#### Array type
+
+`[item_type]` represents an array of items.
+
+##### Keyed arrays
+
+If `item_type` is a struct and one of its fields can be used to identify every item in the array, you can add the field name next to a pipe character: `[item_type|key_field]`.
+
+Example:
+```d
+struct User {
+  id: uint64;
+  name: string;
+}
+
+struct UserRegistry {
+  users: [User|id];
+}
+```
+
+Language plugins will generate methods allowing you to perform key lookups in the array using a hash table. For example, in Python:
+
+```python
+user = user_registry.users.find(user_id)
+if user:
+    do_something(user)
+```
+
+If the item key is nested within another struct, you can chain the field names like so: `[item_type|a.b.c]`.
+
+The key type must be a primitive type of an enum type. If it's an enum type, add `.kind` at the end of the key chain:
+
+```d
+enum Weekday {
+  MONDAY;
+  TUESDAY;
+  WEDNESDAY;
+  THURSDAY;
+  FRIDAY;
+  SATURDAY;
+  SUNDAY;
+}
+
+struct WeekdayWorkStatus {
+  weekday: Weekday;
+  working: bool;
+}
+
+struct Employee {
+  weekly_schedule: [WeekdayWorkStatus|weekday.kind];
+}
+```
+
+#### Optional type
+
+Add a question mark at the end of a non-optional type to make it optional. An `other_type?` value is either an `other_type` or null.
 
 ### Constants
 
@@ -205,6 +268,9 @@ struct ImplicitNumbering {
 ## Good practices
 
 Nesting...
+Array of structs
+Enum of structs
+Optional only if want to distinguish with default value...
 
 ### Naming
 
@@ -213,6 +279,14 @@ Nesting...
 When serializing a soia data structure, you can chose one of 3 formats.
 
 ### Dense JSON
+
+## VS protos
+
+Consts
+Enums and oneof
+Maps and keyed items
+Timestamp type
+Enum and unknown
 
 ## Getting started
 
