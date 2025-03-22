@@ -169,7 +169,7 @@ struct Foo {
 
 #### Removed fields
 
-When removing a field from a struct or an enum, you must mark the removed number in the record definition. The syntax is different whether you're using explicit or implicit numbering:
+When removing a field from a struct or an enum, you must mark the removed number in the record definition using the `removed` keyword. The syntax is different whether you're using explicit or implicit numbering:
 
 ```d
 struct ExplicitNumbering {
@@ -204,11 +204,11 @@ struct ImplicitNumbering {
 
 #### Array type
 
-`[item_type]` represents an array of items.
+Wrap the item type inside square brackets to represent an array of items, e.g. `[string]` or `[User]`.
 
 ##### Keyed arrays
 
-If `item_type` is a struct and one of its fields can be used to identify every item in the array, you can add the field name next to a pipe character: `[item_type|key_field]`.
+If the items are structs and one of the struct fields can be used to identify every item in the array, you can add the field name next to a pipe character: `[Item|key_field]`.
 
 Example:
 ```d
@@ -230,7 +230,7 @@ if user:
     do_something(user)
 ```
 
-If the item key is nested within another struct, you can chain the field names like so: `[item_type|a.b.c]`.
+If the item key is nested within another struct, you can chain the field names like so: `[Item|a.b.c]`.
 
 The key type must be a primitive type of an enum type. If it's an enum type, add `.kind` at the end of the key chain:
 
@@ -260,6 +260,44 @@ struct Employee {
 Add a question mark at the end of a non-optional type to make it optional. An `other_type?` value is either an `other_type` or null.
 
 ### Constants
+
+You can define constants of any soia type with the `const` keyword. The syntax for representing the value is similar to JSON, with the following differences:
+
+*   object keys must not be quoted
+*   trailing commas are allowed and even encouraged
+*   strings can be single-quoted or double-quoted
+*   strings can span multiple lines by escaping new line characters
+
+```d
+const PI: float64 = 3.14159;
+
+const LARGE_CIRCLE: Circle = {
+  center: {
+    x: 100,
+    y: 100,
+  },
+  radius: 100,
+  color: {
+    r: 255,
+    g: 0,
+    b: 255,
+    label: "fuschia",
+  },
+};
+
+const MULTILINE_STRING: string = 'Hello\
+world\
+!';
+
+// Use strings for constant fields of enums.
+const REST_DAY: Weekday = "SUNDAY";
+
+// Use objects with two keys (kind and value) for value fields of enums.
+const NOT_IMPLEMENTED_ERROR: OperationStatus = {
+  kind: "error",
+  value: "Not implemented",
+};
+```
 
 ### Methods
 
