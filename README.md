@@ -18,10 +18,10 @@ struct Polyline {
   label: string;
 }
 
-const LIMIT: Point = {
+const TOP_RIGHT_CORNER: Point = {
   x = 600,
   y = 400,
-  label = "Limit",
+  label = "Top Right Corner",
 };
 ```
 
