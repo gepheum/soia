@@ -289,10 +289,16 @@ const MULTILINE_STRING: string = 'Hello\
 world\
 !';
 
-// Use strings for constant fields of enums.
+const SUPPORTED_LOCALES: [string] = [
+  "en-GB",
+  "en-US",
+  "es-MX",
+];
+
+// Use strings for enum constants.
 const REST_DAY: Weekday = "SUNDAY";
 
-// Use objects with two keys (kind and value) for value fields of enums.
+// Use { kind: ..., value: ... } for enum variants holding a value.
 const NOT_IMPLEMENTED_ERROR: OperationStatus = {
   kind: "error",
   value: "Not implemented",
@@ -301,7 +307,46 @@ const NOT_IMPLEMENTED_ERROR: OperationStatus = {
 
 ### Methods
 
+The `method` keyword allows you to define the signature of a remote method.
+
+```d
+struct GetUserProfileRequest {
+  // ...
+}
+
+struct GetUserProfileResponse {
+  // ...
+}
+
+method GetUserProfile(GetUserProfileRequest): GetUserProfileResponse;
+```
+
+The request and response can have any soia type.
+
 ### Imports
+
+The `import` statement allows you to import types from another soia module. You can either specify the names to import, or import the whole module with an alias using the `as` keyword.
+
+```d
+import Point, Circle from "geometry/geometry.soia";
+import * as color from "color.soia";
+
+struct Rectangle {
+  top_left: Point;
+  bottom_right: Point;
+}
+
+struct Disk {
+  circle: Circle;
+  fill_color: color.Color;  // the type is defined in the "color.soia" module
+}
+```
+
+The path is always relative to the root of the soia source directory.
+
+## Serialization formats
+
+When serializing a soia data structure, you can chose one of 3 formats.
 
 ## Good practices
 
@@ -309,12 +354,6 @@ Nesting...
 Array of structs
 Enum of structs
 Optional only if want to distinguish with default value...
-
-### Naming
-
-## Serialization formats
-
-When serializing a soia data structure, you can chose one of 3 formats.
 
 ### Dense JSON
 
