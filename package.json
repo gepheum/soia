@@ -1,6 +1,6 @@
 {
   "name": "soiac",
-  "version": "1.0.23",
+  "version": "1.0.24",
   "description": "",
   "homepage": "https://github.com/gepheum/soiac#readme",
   "bugs": {
@@ -35,12 +35,11 @@
     "test": "mocha"
   },
   "dependencies": {
-    "glob": "^10.3.10",
-    "soia": "^1.0.12",
-    "watcher": "^2.3.0",
-    "yaml": "^2.3.4",
-    "zod": "^3.22.4",
-    "zod-validation-error": "^3.0.0"
+    "glob": "^11.0.1",
+    "watcher": "^2.3.1",
+    "yaml": "^2.7.1",
+    "zod": "^3.24.3",
+    "zod-validation-error": "^3.4.0"
   },
   "devDependencies": {
     "@trivago/prettier-plugin-sort-imports": "^4.3.0",

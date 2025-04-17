@@ -21,7 +21,7 @@ struct Polyline {
 const TOP_RIGHT_CORNER: Point = {
   x = 600,
   y = 400,
-  label = "Top Right Corner",
+  label = "top-right corner",
 };
 ```
 
@@ -367,3 +367,6 @@ Enum and unknown
 
 ## Getting started
 
+TODO: one numbering section for all records
+TODO: address all TODOs
+TODO: note on recursivity
