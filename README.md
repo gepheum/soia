@@ -401,7 +401,7 @@ The dense JSON representation of `JOHN_DOE` is:
 A couple observations:
 
 *   Removed fields are replaced with zeros
-*   Trailing fields with a default value (`nickname` in this example) are omitted
+*   Trailing fields with default values (`nickname` in this example) are omitted
 
 This format is not very readable, but it's compact and it allows you to rename fields in your struct definition without breaking backward compatibility. 
 
