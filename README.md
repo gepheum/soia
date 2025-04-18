@@ -4,7 +4,7 @@
 
 Soia is a language for representing data types, constants and RPC interfaces. Soia files have the `.soia` extension.
 
-```d
+```rust
 // shapes.soia
 
 struct Point {
@@ -23,6 +23,9 @@ const TOP_RIGHT_CORNER: Point = {
   y = 400,
   label = "top-right corner",
 };
+
+// Method of an RPC interface
+method IsPalindrome(string): bool;
 ```
 
 The soia compiler takes in a set of soia files and generates source files containg the definition of the data types and constants in various programming languages. It also generates functions for serializing the data types to either JSON or a more compact binary format.
@@ -36,9 +39,22 @@ point = shapes.Point.SERIALIZER.from_json(json)
 assert(point == shapes.Point(x=3, y=4, label="P"))
 ```
 
-As of March 2025, soia has official plugins for Javascript/Typescript, Python and C++.
+As of March 2025, soia has official plugins for:
 
-TODO: links
+*   JavaScript/TypeScript: [plugin](https://github.com/gepheum/soia-typescript-gen), [example](https://github.com/gepheum/soia-typescript-example)
+*   Python: [plugin](https://github.com/gepheum/soia-python-gen), [example](https://github.com/gepheum/soia-python-example)
+*   C++: [plugin](https://github.com/gepheum/soia-cc-gen), [example](https://github.com/gepheum/soia-cc-example)
+
+Other official and unofficial plugins will come.
+
+## Why soia
+
+*   Generates code in different languages. This makes soia ideal for systems where different services are written in different languages but need to exchange structured data.
+*   Supports serialization to JSON or binary format.
+*   Serialize now, deserialize in 100 years. Soia is designed with backward and forward compatibility in mind. You can evolve your data schemas by adding new fields or renaming fields. You will still be able to deserialize old values, and you won't break existing applications that use older versions of the schema.
+*   Generates code that makes no compromise with type safety.
+*   Allows you to define typesafe interfaces between your services or your backend and your frontend.
+*   No boilerplate code when you adding a new method to a service.
 
 ## Language reference
 
@@ -348,25 +364,67 @@ The path is always relative to the root of the soia source directory.
 
 When serializing a soia data structure, you can chose one of 3 formats.
 
-## Good practices
+### JSON, dense flavor
 
-Nesting...
-Array of structs
-Enum of structs
-Optional only if want to distinguish with default value...
+This is the serialization format you should chose in most cases.
 
-### Dense JSON
+Structs are serialized as JSON arrays, where the field numbers in the index definition match the indexes in the array. Enum constants are serialized as numbers.
 
-## VS protos
+```rust
+struct User {
+  user_id: int;
+  removed;
+  name: string;
+  rest_day: Weekday;
+  pets: [Pet];
+  nickname: string;
+}
 
-Consts
-Enums and oneof
-Maps and keyed items
-Timestamp type
-Enum and unknown
+const JOHN_DOE = {
+  user_id: 400,
+  name: "John Doe",
+  rest_day: "SUNDAY",
+  pets: [
+    { name: "Fluffy" },
+    { name: "Fido" },
+  ],
+  nickname: "",
+}
+```
 
-## Getting started
+The dense JSON representation of `JOHN_DOE` is:
 
-TODO: one numbering section for all records
-TODO: address all TODOs
-TODO: note on recursivity
+```json
+[400,0,"John Doe",7,[["Fluffy"],["Fido"]]]
+```
+
+A couple observations:
+
+*   Removed fields are replaced with zeros
+*   Trailing fields with a default value (`nickname` in this example) are omitted
+
+This format is not very readable, but it's compact and it allows you to rename fields in your struct definition without breaking backward compatibility. 
+
+### JSON, readable flavor
+
+Structs are serialized as JSON objects, and enum constants are serialized as strings.
+
+The readable JSON representation of `JOHN_DOE` is:
+
+```json
+{
+  "user_id": 400,
+  "name": "Johm Doe",
+  "rest_day": "SUNDAY",
+  "pets": [
+    { "name": "Fluffy" },
+    { "name": "Fido" }
+  ]
+}
+```
+
+This format is more verbose and readable, but it should **not** be used if you need persistence, because soia allows fields to be renamed in record definitions. In other words, never store a readable JSON on disk or in a database.
+
+### Binary format
+
+This format is a bit more compact than JSON, and serialization/deserialization can be faster in languages like C++. Only prefer this format over JSON when the small performance gain is likely to matter, which should be rare.
