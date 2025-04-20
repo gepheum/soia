@@ -1,4 +1,4 @@
-name: Soia Compiler CI
+name: Build
 
 on:
   push:
