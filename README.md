@@ -1,5 +1,5 @@
 [![npm](https://img.shields.io/npm/v/soiac)](https://www.npmjs.com/package/soiac)
-[![build](https://github.com/gepheum/soias/workflows/Build/badge.svg)](https://github.com/gepheum/soiac/actions)
+[![build](https://github.com/gepheum/soiac/workflows/Build/badge.svg)](https://github.com/gepheum/soiac/actions)
 
 # Soia
 
