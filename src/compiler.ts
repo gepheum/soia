@@ -430,7 +430,7 @@ async function main(): Promise<void> {
   ];
   for (const mirroredSoiagenDir of soiaConfig.mirroredSoiagenDirs || []) {
     soiagenDirs.push({
-      path: mirroredSoiagenDir.path,
+      path: paths.join(root!, mirroredSoiagenDir.path),
       fileRegex: new RegExp(mirroredSoiagenDir.fileRegex ?? ""),
     });
   }
