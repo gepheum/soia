@@ -139,7 +139,7 @@ class WatchModeMainLoop {
         (console.error || console.log).call(message);
       }
     };
-    this.timeoutId = globalThis.setTimeout(() => callback, delayMillis);
+    this.timeoutId = globalThis.setTimeout(callback, delayMillis);
   }
 
   async generate(): Promise<boolean> {
