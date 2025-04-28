@@ -11,25 +11,31 @@ import * as yaml from "yaml";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
 
-const GeneratorConfig = z.object({
-  mod: z.string(),
-  config: z.any(),
-});
+const GeneratorConfig = z
+  .object({
+    mod: z.string(),
+    config: z.any(),
+  })
+  .strict();
 
 type GeneratorConfig = z.infer<typeof GeneratorConfig>;
 
-const SoiaConfig = z.object({
-  generators: z.array(GeneratorConfig),
-  srcDir: z.string().optional(),
-  mirroredSoiagenDirs: z
-    .array(
-      z.object({
-        path: z.string().regex(/^.*\/soiagen$/),
-        fileRegex: z.string().optional(),
-      }),
-    )
-    .optional(),
-});
+const SoiaConfig = z
+  .object({
+    generators: z.array(GeneratorConfig),
+    srcDir: z.string().optional(),
+    mirroredSoiagenDirs: z
+      .array(
+        z
+          .object({
+            path: z.string().regex(/^.*\/soiagen$/),
+            fileRegex: z.string().optional(),
+          })
+          .strict(),
+      )
+      .optional(),
+  })
+  .strict();
 
 type SoiaConfig = z.infer<typeof SoiaConfig>;
 
