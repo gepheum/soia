@@ -21,12 +21,14 @@ type GeneratorConfig = z.infer<typeof GeneratorConfig>;
 const SoiaConfig = z.object({
   generators: z.array(GeneratorConfig),
   srcDir: z.string().optional(),
-  mirroredSoiagenDirs: z.array(
-    z.object({
-      path: z.string().regex(/^.*\/soiagen$/),
-      fileRegex: z.string().optional(),
-    }),
-  ).optional(),
+  mirroredSoiagenDirs: z
+    .array(
+      z.object({
+        path: z.string().regex(/^.*\/soiagen$/),
+        fileRegex: z.string().optional(),
+      }),
+    )
+    .optional(),
 });
 
 type SoiaConfig = z.infer<typeof SoiaConfig>;
