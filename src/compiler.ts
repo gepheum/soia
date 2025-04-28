@@ -26,7 +26,7 @@ const SoiaConfig = z.object({
       path: z.string().regex(/^.*\/soiagen$/),
       fileRegex: z.string().optional(),
     }),
-  ),
+  ).optional(),
 });
 
 type SoiaConfig = z.infer<typeof SoiaConfig>;
