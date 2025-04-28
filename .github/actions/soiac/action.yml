@@ -12,9 +12,7 @@ inputs:
 
 runs:
   using: 'composite'
-  defaults:
-    run:
-      working-directory: ${{ inputs.working-directory }}
+    
   steps:
     - name: Checkout code
       uses: actions/checkout@v3
@@ -26,6 +24,10 @@ runs:
 
     - name: Install Node dependencies
       run: npm ci
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
 
     - name: Run Soia code generation
       run: npm run soiac
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
