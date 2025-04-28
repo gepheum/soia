@@ -21,6 +21,12 @@ type GeneratorConfig = z.infer<typeof GeneratorConfig>;
 const SoiaConfig = z.object({
   generators: z.array(GeneratorConfig),
   srcDir: z.string().optional(),
+  mirroredSoiagenDirs: z.array(
+    z.object({
+      path: z.string().regex(/^.*\/soiagen$/),
+      fileRegex: z.string().optional(),
+    }),
+  ),
 });
 
 type SoiaConfig = z.infer<typeof SoiaConfig>;
@@ -28,6 +34,11 @@ type SoiaConfig = z.infer<typeof SoiaConfig>;
 interface GeneratorBundle<Config = unknown> {
   generator: CodeGenerator<Config>;
   config: Config;
+}
+
+interface SoiagenDir {
+  path: string;
+  fileRegex: RegExp;
 }
 
 async function makeGeneratorBundle(
@@ -72,6 +83,7 @@ async function collectModules(root: string): Promise<ModuleSet> {
 }
 
 interface WriteBatch {
+  /** Key: path to a generated file relative to the soiagen dir. */
   readonly pathToFile: ReadonlyMap<string, CodeGenerator.OutputFile>;
   readonly writeTime: Date;
 }
@@ -79,7 +91,7 @@ interface WriteBatch {
 class WatchModeMainLoop {
   constructor(
     private readonly srcDir: string,
-    private readonly soiagenDir: string,
+    private readonly soiagenDirs: readonly SoiagenDir[],
     private readonly generatorBundles: readonly GeneratorBundle[],
     private readonly watchModeOn: boolean,
   ) {}
@@ -119,7 +131,7 @@ class WatchModeMainLoop {
         (console.error || console.log).call(message);
       }
     };
-    this.timeoutId = globalThis.setTimeout(() => this.generate(), delayMillis);
+    this.timeoutId = globalThis.setTimeout(() => callback, delayMillis);
   }
 
   async generate(): Promise<boolean> {
@@ -156,14 +168,16 @@ class WatchModeMainLoop {
   }
 
   private async doGenerate(moduleSet: ModuleSet): Promise<void> {
-    const { soiagenDir } = this;
-    await fs.mkdir(soiagenDir, { recursive: true });
+    const { soiagenDirs } = this;
+    const preExistingAbsolutePaths = new Set<string>();
+    for (const soiagenDir of soiagenDirs) {
+      await fs.mkdir(soiagenDir.path, { recursive: true });
 
-    const preExistingAbsolutePaths = new Set(
-      (await glob(paths.join(soiagenDir, "**/*"), { withFileTypes: true })).map(
-        (p) => p.fullpath(),
-      ),
-    );
+      // Collect all the files in all the soiagen dirs.
+      (
+        await glob(paths.join(soiagenDir.path, "**/*"), { withFileTypes: true })
+      ).forEach((p) => preExistingAbsolutePaths.add(p.fullpath()));
+    }
 
     const pathToFile = new Map<string, CodeGenerator.OutputFile>();
     for (const bundle of this.generatorBundles) {
@@ -178,36 +192,47 @@ class WatchModeMainLoop {
           throw new Error(`Multiple generators produce ${path}`);
         }
         pathToFile.set(path, file);
-        // Remove this path and all its parents from the set of paths to remove
-        // at the end of the generation.
-        for (
-          let pathToKeep = path;
-          pathToKeep !== ".";
-          pathToKeep = paths.dirname(pathToKeep)
-        ) {
-          preExistingAbsolutePaths.delete(
-            paths.resolve(paths.join(soiagenDir, pathToKeep)),
-          );
+        for (const soiagenDir of soiagenDirs) {
+          if (!soiagenDir.fileRegex.test(path)) {
+            continue;
+          }
+          // Remove this path and all its parents from the set of paths to remove
+          // at the end of the generation.
+          for (
+            let pathToKeep = path;
+            pathToKeep !== ".";
+            pathToKeep = paths.dirname(pathToKeep)
+          ) {
+            preExistingAbsolutePaths.delete(
+              paths.resolve(paths.join(soiagenDir.path, pathToKeep)),
+            );
+          }
         }
       }
     }
 
+    // Write or override all the generated files.
     const { lastWriteBatch } = this;
     await Promise.all(
       Array.from(pathToFile).map(async ([p, newFile]) => {
-        const fsPath = paths.join(this.soiagenDir, p);
         const oldFile = lastWriteBatch.pathToFile.get(p);
-        if (oldFile?.code === newFile.code) {
-          const mtime = (await fs.stat(fsPath)).mtime;
-          if (
-            mtime !== null &&
-            mtime.getDate() <= lastWriteBatch.writeTime.getDate()
-          ) {
-            return;
+        for (const soiagenDir of soiagenDirs) {
+          if (!soiagenDir.fileRegex.test(p)) {
+            continue;
           }
+          const fsPath = paths.join(soiagenDir.path, p);
+          if (oldFile?.code === newFile.code) {
+            const mtime = (await fs.stat(fsPath)).mtime;
+            if (
+              mtime !== null &&
+              mtime.getDate() <= lastWriteBatch.writeTime.getDate()
+            ) {
+              return;
+            }
+          }
+          await fs.mkdir(paths.dirname(fsPath), { recursive: true });
+          await fs.writeFile(fsPath, newFile.code, "utf-8");
         }
-        await fs.mkdir(paths.dirname(fsPath), { recursive: true });
-        await fs.writeFile(fsPath, newFile.code, "utf-8");
       }),
     );
 
@@ -314,6 +339,24 @@ async function isDirectory(path: string): Promise<boolean> {
   }
 }
 
+function checkNoOverlappingSoiagenDirs(
+  soiagenDirs: readonly SoiagenDir[],
+): void {
+  for (let i = 0; i < soiagenDirs.length; ++i) {
+    for (let j = i + 1; j < soiagenDirs.length; ++j) {
+      const dirA = paths.normalize(soiagenDirs[i]!.path);
+      const dirB = paths.normalize(soiagenDirs[j]!.path);
+
+      if (
+        dirA.startsWith(dirB + paths.sep) ||
+        dirB.startsWith(dirA + paths.sep)
+      ) {
+        throw new Error(`Overlapping soiagen directories: ${dirA} and ${dirB}`);
+      }
+    }
+  }
+}
+
 async function main(): Promise<void> {
   const {
     values: { root, watch },
@@ -379,9 +422,22 @@ async function main(): Promise<void> {
 
   const srcDir = paths.join(root!, soiaConfig.srcDir || ".");
   const soiagenDir = paths.join(root!, "soiagen");
+  const soiagenDirs: SoiagenDir[] = [
+    {
+      path: soiagenDir,
+      fileRegex: new RegExp(""),
+    },
+  ];
+  for (const mirroredSoiagenDir of soiaConfig.mirroredSoiagenDirs || []) {
+    soiagenDirs.push({
+      path: mirroredSoiagenDir.path,
+      fileRegex: new RegExp(mirroredSoiagenDir.fileRegex ?? ""),
+    });
+  }
+  checkNoOverlappingSoiagenDirs(soiagenDirs);
   const watchModeMainLoop = new WatchModeMainLoop(
     srcDir,
-    soiagenDir,
+    soiagenDirs,
     generatorBundles,
     !!watch,
   );
