@@ -7,10 +7,17 @@ on:
         required: false
         type: string
         default: '20'
+      working-directory:
+        required: false
+        type: string
+        default: '.'
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
 
     steps:
       - name: Checkout code
