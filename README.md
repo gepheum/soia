@@ -431,3 +431,14 @@ This format is more verbose and readable, but it should **not** be used if you n
 ### Binary format
 
 This format is a bit more compact than JSON, and serialization/deserialization can be faster in languages like C++. Only prefer this format over JSON when the small performance gain is likely to matter, which should be rare.
+
+## Soia services
+
+### Calling a method with cURL
+
+```
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"method": "MethodName", "request": {"foo": 3, "bar": []}}' \
+  http://localhost:8787/myapi
+```
