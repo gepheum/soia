@@ -492,7 +492,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  if (!!fmt === !!watch) {
+  if (fmt && watch) {
     console.log(makeRed("Formatter cannot be used with watch mode"));
     process.exit(1);
   }
