@@ -5,6 +5,7 @@ import type { CodeLine, ErrorSink, Result, SoiaError, Token } from "./types.js";
 export function tokenizeModule(
   code: string,
   modulePath: string,
+  keepComments?: "keep-comments",
 ): Result<Token[]> {
   const tokens: Token[] = [];
   const errors: SoiaError[] = [];
@@ -57,7 +58,7 @@ export function tokenizeModule(
     };
 
     // Skip multiline comments.
-    if (group[1] !== undefined) {
+    if (group[1] !== undefined && !keepComments) {
       // Make sure the multiline comment is terminated.
       if (!group[1].endsWith("*/")) {
         errors.push({
@@ -69,7 +70,9 @@ export function tokenizeModule(
     }
 
     // Skip single-line comments.
-    if (group[4] !== undefined) continue;
+    if (group[4] !== undefined && !keepComments) {
+      continue;
+    }
 
     if (group[8] !== undefined) {
       if (!validateWord(token, errors)) {

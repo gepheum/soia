@@ -1,6 +1,8 @@
 #!/usr/bin/env node
+import { formatModule } from "./formatter.js";
 import { REAL_FILE_SYSTEM } from "./io.js";
 import { ModuleSet } from "./module_set.js";
+import { tokenizeModule } from "./tokenizer.js";
 import type { CodeGenerator, SoiaError } from "./types.js";
 import * as fs from "fs/promises";
 import { glob } from "glob";
@@ -292,6 +294,10 @@ function makeGreen(text: string): string {
   return `\x1b[32m${text}\x1b[0m`;
 }
 
+function makeGray(text: string): string {
+  return `\x1b[90m${text}\x1b[0m`;
+}
+
 function formatError(error: SoiaError): string {
   const { token } = error;
   const { line, colNumber } = token;
@@ -365,9 +371,73 @@ function checkNoOverlappingSoiagenDirs(
   }
 }
 
+interface ModuleFormatResult {
+  formattedCode: string;
+  alreadyFormatted: boolean;
+}
+
+async function format(root: string, mode: "fix" | "check"): Promise<void> {
+  const soiaFiles = await glob(paths.join(root, "**/*.soia"), {
+    withFileTypes: true,
+  });
+  const pathToFormatResult = new Map<string, ModuleFormatResult>();
+  for await (const soiaFile of soiaFiles) {
+    if (!soiaFile.isFile) {
+      continue;
+    }
+    const unformattedCode = REAL_FILE_SYSTEM.readTextFile(soiaFile.fullpath());
+    if (unformattedCode === undefined) {
+      throw new Error(`Cannot read ${soiaFile.fullpath()}`);
+    }
+    const tokens = tokenizeModule(unformattedCode, "", "keep-comments");
+    if (tokens.errors.length) {
+      renderErrors(tokens.errors);
+      process.exit(1);
+    }
+    const formattedCode = formatModule(tokens.result);
+    pathToFormatResult.set(soiaFile.fullpath(), {
+      formattedCode: formattedCode,
+      alreadyFormatted: formattedCode === unformattedCode,
+    });
+  }
+  let numFilesNotFormatted = 0;
+  for (const [path, result] of pathToFormatResult) {
+    const relativePath = paths.relative(root, path).replace(/\\/g, "/");
+    if (mode === "fix") {
+      if (result.alreadyFormatted) {
+        console.log(`${makeGray(relativePath)} (unchanged)`);
+      } else {
+        REAL_FILE_SYSTEM.writeTextFile(path, result.formattedCode);
+        console.log(makeGray(relativePath));
+      }
+    } else {
+      const _: "check" = mode;
+      if (result.alreadyFormatted) {
+        console.log(`${makeGray(relativePath)} (OK)`);
+      } else {
+        console.log(makeRed(relativePath));
+        ++numFilesNotFormatted;
+      }
+    }
+  }
+  if (numFilesNotFormatted) {
+    console.log();
+    console.log(
+      makeRed(
+        `${numFilesNotFormatted} file${
+          numFilesNotFormatted > 1 ? "s" : ""
+        } not formatted; run with '--fmt fix' to format ${
+          numFilesNotFormatted > 1 ? "them" : "it"
+        }`,
+      ),
+    );
+    process.exit(1);
+  }
+}
+
 async function main(): Promise<void> {
   const {
-    values: { root, watch },
+    values: { root, watch, fmt },
   } = parseArgs({
     options: {
       root: {
@@ -378,6 +448,9 @@ async function main(): Promise<void> {
       watch: {
         type: "boolean",
         short: "w",
+      },
+      fmt: {
+        type: "string",
       },
     },
   });
@@ -410,6 +483,20 @@ async function main(): Promise<void> {
     }
   }
 
+  if (fmt && fmt !== "fix" && fmt !== "check") {
+    console.log(
+      makeRed(
+        `Formatter mode must be one of ['fix', 'check']; actual: '${fmt}'`,
+      ),
+    );
+    process.exit(1);
+  }
+
+  if (!!fmt === !!watch) {
+    console.log(makeRed("Formatter cannot be used with watch mode"));
+    process.exit(1);
+  }
+
   const generatorBundles: GeneratorBundle[] = await Promise.all(
     soiaConfig.generators.map(makeGeneratorBundle),
   );
@@ -429,31 +516,38 @@ async function main(): Promise<void> {
   }
 
   const srcDir = paths.join(root!, soiaConfig.srcDir || ".");
-  const soiagenDir = paths.join(root!, "soiagen");
-  const soiagenDirs: SoiagenDir[] = [
-    {
-      path: soiagenDir,
-      fileRegex: new RegExp(""),
-    },
-  ];
-  for (const mirroredSoiagenDir of soiaConfig.mirroredSoiagenDirs || []) {
-    soiagenDirs.push({
-      path: paths.join(root!, mirroredSoiagenDir.path),
-      fileRegex: new RegExp(mirroredSoiagenDir.fileRegex ?? ""),
-    });
-  }
-  checkNoOverlappingSoiagenDirs(soiagenDirs);
-  const watchModeMainLoop = new WatchModeMainLoop(
-    srcDir,
-    soiagenDirs,
-    generatorBundles,
-    !!watch,
-  );
-  if (watch) {
-    await watchModeMainLoop.start();
+
+  if (fmt) {
+    // Check or fix the formatting to the .soia files in the source directory.
+    await format(srcDir, fmt as "fix" | "check");
   } else {
-    const success: boolean = await watchModeMainLoop.generate();
-    process.exit(success ? 0 : 1);
+    // Run the soia code generators in watch mode or once.
+    const soiagenDir = paths.join(root!, "soiagen");
+    const soiagenDirs: SoiagenDir[] = [
+      {
+        path: soiagenDir,
+        fileRegex: new RegExp(""),
+      },
+    ];
+    for (const mirroredSoiagenDir of soiaConfig.mirroredSoiagenDirs || []) {
+      soiagenDirs.push({
+        path: paths.join(root!, mirroredSoiagenDir.path),
+        fileRegex: new RegExp(mirroredSoiagenDir.fileRegex ?? ""),
+      });
+    }
+    checkNoOverlappingSoiagenDirs(soiagenDirs);
+    const watchModeMainLoop = new WatchModeMainLoop(
+      srcDir,
+      soiagenDirs,
+      generatorBundles,
+      !!watch,
+    );
+    if (watch) {
+      await watchModeMainLoop.start();
+    } else {
+      const success: boolean = await watchModeMainLoop.generate();
+      process.exit(success ? 0 : 1);
+    }
   }
 }
 
