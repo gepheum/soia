@@ -13,6 +13,7 @@ import type {
   ErrorSink,
   FieldPath,
   Import,
+  ImportAlias,
   Module,
   MutableArrayType,
   MutableModule,
@@ -78,9 +79,12 @@ export class ModuleSet {
     const module = parsedModule.result;
 
     // Process all imports.
-    const pathToImports = new Map<string, Array<Import>>();
+    const pathToImports = new Map<string, Array<Import | ImportAlias>>();
     for (const declaration of module.declarations) {
-      if (declaration.kind !== "import" && declaration.kind !== "import-as") {
+      if (
+        declaration.kind !== "import" &&
+        declaration.kind !== "import-alias"
+      ) {
         continue;
       }
       const otherModulePath = getModulePath(declaration, modulePath, errors);
@@ -135,12 +139,12 @@ export class ModuleSet {
     const pathToImportedNames = module.pathToImportedNames;
     for (const [path, imports] of pathToImports.entries()) {
       const importsNoAlias = imports.filter((i) => i.kind === "import");
-      const importsWithAlias = imports.filter((i) => i.kind === "import-as");
+      const importsWithAlias = imports.filter((i) => i.kind === "import-alias");
 
       if (importsNoAlias.length && importsWithAlias.length) {
         for (const importNoAlias of importsNoAlias) {
           errors.push({
-            token: importNoAlias.name,
+            token: importNoAlias.modulePath,
             message: "Module already imported with an alias",
           });
         }
@@ -149,7 +153,7 @@ export class ModuleSet {
       if (importsWithAlias.length >= 2) {
         for (const importWithAlias of importsWithAlias.slice(1)) {
           errors.push({
-            token: importWithAlias.name,
+            token: importWithAlias.modulePath,
             message: "Module already imported with a different alias",
           });
         }
@@ -159,7 +163,9 @@ export class ModuleSet {
       if (importsNoAlias.length) {
         const names = new Set<string>();
         for (const importNoAlias of importsNoAlias) {
-          names.add(importNoAlias.name.text);
+          for (const importedName of importNoAlias.importedNames) {
+            names.add(importedName.text);
+          }
         }
         pathToImportedNames[path] = {
           kind: "some",
@@ -886,7 +892,7 @@ class TypeResolver {
         return undefined;
       } else if (newIt.kind === "record") {
         it = newIt;
-      } else if (newIt.kind === "import" || newIt.kind === "import-as") {
+      } else if (newIt.kind === "import" || newIt.kind === "import-alias") {
         const cannotReimportError = () => ({
           token: namePart,
           message: `Cannot reimport imported name '${name}'`,
@@ -895,7 +901,7 @@ class TypeResolver {
           errors.push(cannotReimportError());
           return undefined;
         }
-        usedImports.add(newIt.name.text);
+        usedImports.add(name);
         const newModulePath = getModulePath(newIt, module.path, []);
         if (newModulePath === undefined) {
           return undefined;
@@ -915,7 +921,7 @@ class TypeResolver {
           }
           if (!newIt || newIt.kind !== "record") {
             this.errors.push(
-              newIt.kind === "import" || newIt.kind === "import-as"
+              newIt.kind === "import" || newIt.kind === "import-alias"
                 ? cannotReimportError()
                 : makeNotARecordError(namePart),
             );
@@ -945,7 +951,7 @@ class TypeResolver {
 }
 
 function getModulePath(
-  declaration: Import,
+  declaration: Import | ImportAlias,
   originModulePath: string,
   errors: ErrorSink,
 ): string | undefined {
@@ -1009,14 +1015,22 @@ function ensureAllImportsAreUsed(
   errors: ErrorSink,
 ): void {
   for (const declaration of module.declarations) {
-    if (declaration.kind !== "import" && declaration.kind !== "import-as") {
-      continue;
-    }
-    if (!usedImports.has(declaration.name.text)) {
-      errors.push({
-        token: declaration.name,
-        message: "Unused import",
-      });
+    if (declaration.kind === "import") {
+      for (const importedName of declaration.importedNames) {
+        if (!usedImports.has(importedName.text)) {
+          errors.push({
+            token: importedName,
+            message: "Unused import",
+          });
+        }
+      }
+    } else if (declaration.kind === "import-alias") {
+      if (!usedImports.has(declaration.name.text)) {
+        errors.push({
+          token: declaration.name,
+          message: "Unused import alias",
+        });
+      }
     }
   }
 }

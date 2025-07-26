@@ -51,7 +51,7 @@ describe("module set", () => {
       result: {
         nameToDeclaration: {
           other_module: {
-            kind: "import-as",
+            kind: "import-alias",
             name: {
               text: "other_module",
             },
@@ -300,7 +300,7 @@ describe("module set", () => {
       errors: [
         {
           token: {
-            text: "Foo",
+            text: '"./other/module"',
           },
           message: "Module already imported with an alias",
         },
@@ -326,11 +326,70 @@ describe("module set", () => {
       errors: [
         {
           token: {
-            text: "bar",
+            text: '"./other/module"',
           },
           message: "Module already imported with a different alias",
         },
       ],
+    });
+  });
+
+  it("multiple import declarations from same module", () => {
+    const fakeFileReader = new FakeFileReader();
+    fakeFileReader.pathToCode.set(
+      "path/to/root/path/to/module",
+      `
+        import Foo from "./other/module";
+        import Bar from "./other/module";
+
+        struct Zoo {
+          foo: Foo;
+          bar: Bar;
+        }
+      `,
+    );
+    fakeFileReader.pathToCode.set(
+      "path/to/root/path/to/other/module",
+      `
+        struct Foo {}
+        struct Bar {}
+      `,
+    );
+
+    const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+    const actual = moduleSet.parseAndResolve("path/to/module");
+
+    expect(actual).toMatch({
+      errors: [],
+    });
+  });
+
+  it("multiple imports from same module", () => {
+    const fakeFileReader = new FakeFileReader();
+    fakeFileReader.pathToCode.set(
+      "path/to/root/path/to/module",
+      `
+        import Foo, Bar from "./other/module";
+
+        struct Zoo {
+          foo: Foo;
+          bar: Bar;
+        }
+      `,
+    );
+    fakeFileReader.pathToCode.set(
+      "path/to/root/path/to/other/module",
+      `
+        struct Foo {}
+        struct Bar {}
+      `,
+    );
+
+    const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+    const actual = moduleSet.parseAndResolve("path/to/module");
+
+    expect(actual).toMatch({
+      errors: [],
     });
   });
 

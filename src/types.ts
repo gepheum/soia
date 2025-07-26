@@ -307,8 +307,15 @@ export interface Record<Mutable extends boolean = boolean> {
 export type MutableRecord = Record<true>;
 
 export interface Import {
-  readonly kind: "import" | "import-as";
-  /** The token corresponding to the imported name or the alias. */
+  readonly kind: "import";
+  readonly importedNames: Token[];
+  /** The token corresponding to the quoted string. */
+  readonly modulePath: Token;
+}
+
+export interface ImportAlias {
+  readonly kind: "import-alias";
+  /** The alias. */
   readonly name: Token;
   /** The token corresponding to the quoted string. */
   readonly modulePath: Token;
@@ -407,6 +414,7 @@ export type DenseJson = null | boolean | number | string | readonly DenseJson[];
 export type ModuleLevelDeclaration<Mutable extends boolean = boolean> =
   | Record<Mutable>
   | Import
+  | ImportAlias
   | Method<Mutable>
   | Constant<Mutable>;
 

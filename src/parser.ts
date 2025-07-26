@@ -3,6 +3,7 @@ import type {
   ErrorSink,
   FieldPath,
   Import,
+  ImportAlias,
   MutableConstant,
   MutableDeclaration,
   MutableField,
@@ -33,18 +34,26 @@ export function parseModule(
   const it = new TokenIterator(tokens, errors);
   const declarations = parseDeclarations(it, "module");
   it.expectThenMove([""]);
+  // Create a mappinng from names to declarations, and check for duplicates.
   const nameToDeclaration: { [name: string]: MutableModuleLevelDeclaration } =
     {};
   for (const declaration of declarations) {
-    const nameToken = declaration.name;
-    const name = nameToken.text;
-    if (name in nameToDeclaration) {
-      errors.push({
-        token: nameToken,
-        message: `Duplicate identifier "${name}"`,
-      });
+    let nameTokens: Token[];
+    if (declaration.kind === "import") {
+      nameTokens = declaration.importedNames;
     } else {
-      nameToDeclaration[name] = declaration;
+      nameTokens = [declaration.name];
+    }
+    for (const nameToken of nameTokens) {
+      const name = nameToken.text;
+      if (name in nameToDeclaration) {
+        errors.push({
+          token: nameToken,
+          message: `Duplicate identifier "${name}"`,
+        });
+      } else {
+        nameToDeclaration[name] = declaration;
+      }
     }
   }
   const methods = declarations.filter(
@@ -610,19 +619,19 @@ function parseRemoved(it: TokenIterator, removedToken: Token): Removed | null {
   };
 }
 
-function parseImport(it: TokenIterator): Import | null {
+function parseImport(it: TokenIterator): Import | ImportAlias | null {
   const tokenMatch = it.expectThenMove(["*", TOKEN_IS_IDENTIFIER]);
   switch (tokenMatch.case) {
     case 0:
       return parseImportAs(it);
     case 1:
-      return parseImportGivenName(tokenMatch.token, it);
+      return parseImportGivenNames(tokenMatch.token, it);
     default:
       return null;
   }
 }
 
-function parseImportAs(it: TokenIterator): Import | null {
+function parseImportAs(it: TokenIterator): ImportAlias | null {
   if (it.expectThenMove(["as"]).case < 0) return null;
   const aliasMatch = it.expectThenMove([TOKEN_IS_IDENTIFIER]);
   if (aliasMatch.case < 0) {
@@ -636,16 +645,25 @@ function parseImportAs(it: TokenIterator): Import | null {
   }
   it.expectThenMove([";"]);
   return {
-    kind: "import-as",
+    kind: "import-alias",
     name: aliasMatch.token,
     modulePath: modulePathMatch.token,
   };
 }
 
-function parseImportGivenName(
+function parseImportGivenNames(
   firstName: Token,
   it: TokenIterator,
 ): Import | null {
+  const importedNames = [firstName];
+  while (it.peek() === ",") {
+    it.next();
+    const nameMatch = it.expectThenMove([TOKEN_IS_IDENTIFIER]);
+    if (nameMatch.case < 0) {
+      return null;
+    }
+    importedNames.push(nameMatch.token);
+  }
   if (it.expectThenMove(["from"]).case < 0) return null;
   const modulePathMatch = it.expectThenMove([TOKEN_IS_STRING_LITERAL]);
   if (modulePathMatch.case < 0) {
@@ -654,7 +672,7 @@ function parseImportGivenName(
   it.expectThenMove([";"]);
   return {
     kind: "import",
-    name: firstName,
+    importedNames,
     modulePath: modulePathMatch.token,
   };
 }

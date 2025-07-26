@@ -376,15 +376,17 @@ describe("module parser", () => {
         nameToDeclaration: {
           foo: {
             kind: "import",
-            name: {
-              text: "foo",
-            },
+            importedNames: [
+              {
+                text: "foo",
+              },
+            ],
             modulePath: {
               text: "'./path/😊/foo'",
             },
           },
           bar: {
-            kind: "import-as",
+            kind: "import-alias",
             name: {
               text: "bar",
             },
