@@ -1,3 +1,4 @@
+// TODO: sort imports
 import type { Token } from "./types.js";
 
 export function formatModule(tokens: readonly Token[]): string {

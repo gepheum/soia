@@ -138,8 +138,12 @@ export class ModuleSet {
 
     const pathToImportedNames = module.pathToImportedNames;
     for (const [path, imports] of pathToImports.entries()) {
-      const importsNoAlias = imports.filter((i) => i.kind === "import");
-      const importsWithAlias = imports.filter((i) => i.kind === "import-alias");
+      const importsNoAlias = imports.filter(
+        (i): i is Import => i.kind === "import",
+      );
+      const importsWithAlias = imports.filter(
+        (i): i is ImportAlias => i.kind === "import-alias",
+      );
 
       if (importsNoAlias.length && importsWithAlias.length) {
         for (const importNoAlias of importsNoAlias) {

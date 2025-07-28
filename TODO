@@ -1,0 +1,10 @@
+- Formatter:
+  - parse after tokenize
+  - Sort imports
+    - Consider:
+      - Making in-declaration comments illegal?
+      - Removing support for multiline comments?
+      - Forcing import statements to be declared on top?
+- Python:
+  - Try wrap_$struct(field1, field2, ...)
+- Implicit structs in enum fields and Requests/Responses
