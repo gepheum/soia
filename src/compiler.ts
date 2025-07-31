@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { GeneratorConfig, SoiaConfig } from "./config.js";
 import { formatModule } from "./formatter.js";
 import { REAL_FILE_SYSTEM } from "./io.js";
 import { ModuleSet } from "./module_set.js";
@@ -12,34 +13,6 @@ import Watcher from "watcher";
 import * as yaml from "yaml";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
-
-const GeneratorConfig = z
-  .object({
-    mod: z.string(),
-    config: z.any(),
-  })
-  .strict();
-
-type GeneratorConfig = z.infer<typeof GeneratorConfig>;
-
-const SoiaConfig = z
-  .object({
-    generators: z.array(GeneratorConfig),
-    srcDir: z.string().optional(),
-    mirroredSoiagenDirs: z
-      .array(
-        z
-          .object({
-            path: z.string().regex(/^.*\/soiagen$/),
-            fileRegex: z.string().optional(),
-          })
-          .strict(),
-      )
-      .optional(),
-  })
-  .strict();
-
-type SoiaConfig = z.infer<typeof SoiaConfig>;
 
 interface GeneratorBundle<Config = unknown> {
   generator: CodeGenerator<Config>;
@@ -75,7 +48,7 @@ async function makeGeneratorBundle(
 }
 
 async function collectModules(root: string): Promise<ModuleSet> {
-  const modules = new ModuleSet(REAL_FILE_SYSTEM, root);
+  const modules = ModuleSet.create(REAL_FILE_SYSTEM, root);
   const soiaFiles = await glob(paths.join(root, "**/*.soia"), {
     stat: true,
     withFileTypes: true,

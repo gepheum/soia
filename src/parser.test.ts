@@ -668,7 +668,7 @@ describe("module parser", () => {
           },
         },
         pathToImportedNames: {},
-        records: [],
+        records: [{}],
       },
       errors: [],
     });
@@ -691,7 +691,7 @@ describe("module parser", () => {
           },
         },
         pathToImportedNames: {},
-        records: [],
+        records: [{}],
       },
       errors: [],
     });

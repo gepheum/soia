@@ -44,7 +44,7 @@ describe("module set", () => {
         }
       `,
     );
-    const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+    const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
     const actual = moduleSet.parseAndResolve("path/to/module");
 
     expect(actual).toMatch({
@@ -175,7 +175,7 @@ describe("module set", () => {
         enum I { h: H; }
       `,
     );
-    const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+    const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
     const actual = moduleSet.parseAndResolve("path/to/module");
 
     expect(actual).toMatch({
@@ -228,7 +228,7 @@ describe("module set", () => {
         import * as module from "path/to/module";
       `,
     );
-    const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+    const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
     const actual = moduleSet.parseAndResolve("path/to/module");
 
     expect(actual).toMatch({
@@ -262,7 +262,7 @@ describe("module set", () => {
       `,
     );
 
-    const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+    const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
     const actual = moduleSet.parseAndResolve("path/to/module");
 
     expect(actual).toMatch({
@@ -293,7 +293,7 @@ describe("module set", () => {
       `,
     );
 
-    const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+    const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
     const actual = moduleSet.parseAndResolve("path/to/module");
 
     expect(actual).toMatch({
@@ -319,7 +319,7 @@ describe("module set", () => {
     );
     fakeFileReader.pathToCode.set("path/to/root/path/to/other/module", "");
 
-    const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+    const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
     const actual = moduleSet.parseAndResolve("path/to/module");
 
     expect(actual).toMatch({
@@ -356,7 +356,7 @@ describe("module set", () => {
       `,
     );
 
-    const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+    const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
     const actual = moduleSet.parseAndResolve("path/to/module");
 
     expect(actual).toMatch({
@@ -385,7 +385,7 @@ describe("module set", () => {
       `,
     );
 
-    const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+    const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
     const actual = moduleSet.parseAndResolve("path/to/module");
 
     expect(actual).toMatch({
@@ -403,7 +403,7 @@ describe("module set", () => {
     );
     fakeFileReader.pathToCode.set("path/to/root/path/to/other/module", "");
 
-    const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+    const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
     const actual = moduleSet.parseAndResolve("path/to/module");
 
     expect(actual).toMatch({
@@ -429,7 +429,7 @@ describe("module set", () => {
       `,
     );
 
-    const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+    const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
     const actual = moduleSet.parseAndResolve("path/to/module");
 
     expect(actual).toMatch({ errors: [] });
@@ -445,7 +445,7 @@ describe("module set", () => {
       `,
     );
 
-    const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+    const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
     const actual = moduleSet.parseAndResolve("path/to/module");
 
     expect(actual).toMatch({
@@ -490,7 +490,7 @@ describe("module set", () => {
         `,
       );
 
-      const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
       const actual = moduleSet.parseAndResolve("path/to/module");
 
       expect(actual).toMatch({
@@ -574,7 +574,7 @@ describe("module set", () => {
         `,
       );
 
-      const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
       const actual = moduleSet.parseAndResolve("path/to/module");
 
       expect(actual).toMatch({
@@ -602,7 +602,7 @@ describe("module set", () => {
         `,
       );
 
-      const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
       const actual = moduleSet.parseAndResolve("path/to/module");
 
       expect(actual).toMatch({
@@ -631,7 +631,7 @@ describe("module set", () => {
         `,
       );
 
-      const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
       const actual = moduleSet.parseAndResolve("path/to/module");
 
       expect(actual).toMatch({
@@ -658,7 +658,7 @@ describe("module set", () => {
         `,
       );
 
-      const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
       const actual = moduleSet.parseAndResolve("path/to/module");
 
       expect(actual).toMatch({
@@ -685,7 +685,7 @@ describe("module set", () => {
         `,
       );
 
-      const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
       const actual = moduleSet.parseAndResolve("path/to/module");
 
       expect(actual).toMatch({
@@ -713,7 +713,7 @@ describe("module set", () => {
         `,
       );
 
-      const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
       const actual = moduleSet.parseAndResolve("path/to/module");
 
       expect(actual).toMatch({
@@ -742,7 +742,7 @@ describe("module set", () => {
         `,
       );
 
-      const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
       const actual = moduleSet.parseAndResolve("path/to/module");
 
       expect(actual).toMatch({
@@ -782,7 +782,7 @@ describe("module set", () => {
         `,
       );
 
-      const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
       const actual = moduleSet.parseAndResolve("path/to/module");
 
       expect(actual).toMatch({
@@ -821,7 +821,7 @@ describe("module set", () => {
         `,
         );
 
-        const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+        const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
         const actual = moduleSet.parseAndResolve("path/to/module");
 
         expect(actual).toMatch({
@@ -859,7 +859,7 @@ describe("module set", () => {
         `,
         );
 
-        const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+        const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
         const actual = moduleSet.parseAndResolve("path/to/module");
 
         expect(actual).toMatch({
@@ -897,7 +897,7 @@ describe("module set", () => {
         `,
         );
 
-        const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+        const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
         const actual = moduleSet.parseAndResolve("path/to/module");
 
         expect(actual).toMatch({
@@ -935,7 +935,7 @@ describe("module set", () => {
         `,
         );
 
-        const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+        const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
         const actual = moduleSet.parseAndResolve("path/to/module");
 
         expect(actual).toMatch({
@@ -971,7 +971,7 @@ describe("module set", () => {
       `,
     );
 
-    const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+    const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
     const actual = moduleSet.parseAndResolve("path/to/module");
 
     expect(actual).toMatch({
@@ -998,7 +998,7 @@ describe("module set", () => {
       `,
     );
 
-    const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+    const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
     const actual = moduleSet.parseAndResolve("path/to/module");
 
     expect(actual).toMatch({
@@ -1025,7 +1025,7 @@ describe("module set", () => {
       `,
     );
 
-    const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+    const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
     const actual = moduleSet.parseAndResolve("path/to/module");
 
     expect(actual).toMatch({
@@ -1057,7 +1057,7 @@ describe("module set", () => {
       `,
     );
 
-    const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+    const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
     const actual = moduleSet.parseAndResolve("path/to/module");
 
     expect(actual).toMatch({
@@ -1118,7 +1118,7 @@ describe("module set", () => {
         const NULL_SHAPE: Shape? = null;
       `,
       );
-      const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
       const actual = moduleSet.parseAndResolve("path/to/module");
 
       expect(actual).toMatch({
@@ -1289,7 +1289,7 @@ describe("module set", () => {
         };
       `,
       );
-      const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
       const actual = moduleSet.parseAndResolve("path/to/module");
 
       expect(actual).toMatch({
@@ -1315,7 +1315,7 @@ describe("module set", () => {
           };
         `,
       );
-      const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
       const actual = moduleSet.parseAndResolve("path/to/module");
 
       expect(actual).toMatch({
@@ -1357,7 +1357,7 @@ describe("module set", () => {
         };
       `,
       );
-      const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
       const actual = moduleSet.parseAndResolve("path/to/module");
 
       expect(actual).toMatch({
@@ -1400,7 +1400,7 @@ describe("module set", () => {
         };
       `,
       );
-      const moduleSet = new ModuleSet(fakeFileReader, "path/to/root");
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
       const actual = moduleSet.parseAndResolve("path/to/module");
 
       expect(actual).toMatch({

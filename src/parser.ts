@@ -1,5 +1,6 @@
 import * as casing from "./casing.js";
 import type {
+  Declaration,
   ErrorSink,
   FieldPath,
   Import,
@@ -13,9 +14,11 @@ import type {
   MutableObjectEntry,
   MutableRecord,
   MutableRecordLevelDeclaration,
+  MutableRecordLocation,
   MutableValue,
   Numbering,
   Primitive,
+  Record,
   Removed,
   Result,
   SoiaError,
@@ -68,10 +71,9 @@ export function parseModule(
       path: modulePath,
       nameToDeclaration: nameToDeclaration,
       declarations: declarations,
-      // Will be populated at a later stage.
+      // Populated right below.
+      records: collectModuleRecords(declarations),
       pathToImportedNames: {},
-      // Will be populated at a later stage.
-      records: [],
       methods: methods,
       constants: constants,
     },
@@ -1021,4 +1023,31 @@ export function simpleHash(input: string): number {
   }
   // Signed int32 to unsigned int32.
   return hash >>> 0;
+}
+
+function collectModuleRecords(
+  declarations: readonly Declaration[],
+): MutableRecordLocation[] {
+  const result: MutableRecordLocation[] = [];
+  const collect = (
+    declarations: readonly Declaration[],
+    ancestors: readonly Record[],
+  ) => {
+    for (const record of declarations) {
+      if (record.kind !== "record") continue;
+      const updatedRecordAncestors = ancestors.concat([record]);
+      const modulePath = record.name.line.modulePath;
+      const recordLocation: MutableRecordLocation = {
+        kind: "record-location",
+        record: record,
+        recordAncestors: updatedRecordAncestors,
+        modulePath: modulePath,
+      };
+      // We want depth-first.
+      collect(record.declarations, updatedRecordAncestors);
+      result.push(recordLocation);
+    }
+  };
+  collect(declarations, []);
+  return result;
 }

@@ -36,47 +36,45 @@ import type {
 import * as paths from "path";
 
 export class ModuleSet {
-  constructor(
-    private readonly fileReader: FileReader,
-    private readonly rootPath: string,
-  ) {}
+  static create(fileReader: FileReader, rootPath: string): ModuleSet {
+    return new ModuleSet(new DefaultModuleParser(fileReader, rootPath));
+  }
 
-  parseAndResolve(modulePath: string): Result<Module | null> {
+  constructor(private readonly moduleParser: ModuleParser) {}
+
+  parseAndResolve(
+    modulePath: string,
+    inProgressSet?: Set<string>,
+  ): Result<Module | null> {
     const inMap = this.modules.get(modulePath);
     if (inMap !== undefined) {
       return inMap;
     }
-    const result = this.doParseAndResolve(modulePath);
+    const result = this.doParseAndResolve(
+      modulePath,
+      inProgressSet || new Set<string>(),
+    );
     this.modules.set(modulePath, result);
     this.mutableErrors.push(...result.errors);
     return result;
   }
 
-  /** Called by `parseAndValidate` when the module is not in the map already. */
-  private doParseAndResolve(modulePath: string): Result<Module | null> {
-    const code = this.fileReader.readTextFile(
-      paths.join(this.rootPath, modulePath.slice()),
-    );
-    if (code === undefined) {
-      return {
-        result: null,
-        errors: [],
-      };
-    }
-
-    const sentenceNode = tokenizeModule(code, modulePath);
-    if (sentenceNode.errors.length !== 0) {
-      return {
-        result: null,
-        errors: sentenceNode.errors,
-      };
-    }
-
+  /** Called by `parseAndResolve` when the module is not in the map already. */
+  private doParseAndResolve(
+    modulePath: string,
+    inProgressSet: Set<string>,
+  ): Result<Module | null> {
     const errors: SoiaError[] = [];
 
-    const parsedModule = parseModule(sentenceNode.result, modulePath);
-    errors.push(...parsedModule.errors);
-    const module = parsedModule.result;
+    let module: MutableModule;
+    {
+      const parseResult = this.moduleParser.parseModule(modulePath);
+      if (parseResult.result === null) {
+        return parseResult;
+      }
+      errors.push(...parseResult.errors);
+      module = parseResult.result;
+    }
 
     // Process all imports.
     const pathToImports = new Map<string, Array<Import | ImportAlias>>();
@@ -101,16 +99,16 @@ export class ModuleSet {
 
       // Add the imported module to the module set.
       const circularDependencyMessage = "Circular dependency between modules";
-      if (this.inProgressSet.has(modulePath)) {
+      if (inProgressSet.has(modulePath)) {
         errors.push({
           token: declaration.modulePath,
           message: circularDependencyMessage,
         });
         continue;
       }
-      this.inProgressSet.add(modulePath);
-      const otherModule = this.parseAndResolve(otherModulePath);
-      this.inProgressSet.delete(modulePath);
+      inProgressSet.add(modulePath);
+      const otherModule = this.parseAndResolve(otherModulePath, inProgressSet);
+      inProgressSet.delete(modulePath);
 
       if (otherModule.result === null) {
         errors.push({
@@ -193,16 +191,15 @@ export class ModuleSet {
       return result;
     }
 
-    const moduleRecords = collectModuleRecords(module);
-    module.records.push(...moduleRecords.values());
-
     this.mutableResolvedModules.push(module);
 
     // We can't merge these 3 loops into a single one, each operation must run
     // after the last operation ran on the whole map.
 
     // Loop 1: merge the module records map into the cross-module record map.
-    moduleRecords.forEach((v, k) => this.mutableRecordMap.set(k, v));
+    for (const record of module.records) {
+      this.mutableRecordMap.set(record.record.key, record);
+    }
 
     // Loop 2: resolve every field type of every record in the module.
     // Store the result in the Field object.
@@ -213,12 +210,12 @@ export class ModuleSet {
       usedImports,
       errors,
     );
-    for (const record of moduleRecords.values()) {
+    for (const record of module.records) {
       this.storeResolvedFieldTypes(record, typeResolver);
     }
 
     // Loop 3: once all the types of record fields have been resolved.
-    for (const moduleRecord of moduleRecords.values()) {
+    for (const moduleRecord of module.records) {
       const { record } = moduleRecord;
       // For every field, determine if the field is recursive, i.e. the field
       // type depends on the record where the field is defined.
@@ -709,8 +706,6 @@ export class ModuleSet {
   }
 
   private modules = new Map<string, Result<Module | null>>();
-  // To detect circular dependencies.
-  private readonly inProgressSet = new Set<string>();
   private readonly mutableRecordMap = new Map<RecordKey, RecordLocation>();
   private readonly mutableResolvedModules: MutableModule[] = [];
   private readonly mutableErrors: SoiaError[] = [];
@@ -809,7 +804,7 @@ function validateKeyedItems(
   }
 }
 
-class TypeResolver {
+export class TypeResolver {
   constructor(
     private readonly module: Module,
     private readonly modules: Map<string, Result<Module | null>>,
@@ -986,33 +981,6 @@ function getModulePath(
   return modulePath;
 }
 
-function collectModuleRecords(
-  module: MutableModule,
-): Map<RecordKey, MutableRecordLocation> {
-  const result = new Map<RecordKey, MutableRecordLocation>();
-  const collect = (
-    moduleOrRecord: Module | Record,
-    ancestors: readonly Record[],
-  ) => {
-    for (const record of moduleOrRecord.declarations) {
-      if (record.kind !== "record") continue;
-      const updatedRecordAncestors = ancestors.concat([record]);
-      const modulePath = record.name.line.modulePath;
-      const recordLocation: MutableRecordLocation = {
-        kind: "record-location",
-        record: record,
-        recordAncestors: updatedRecordAncestors,
-        modulePath: modulePath,
-      };
-      // We want depth-first.
-      collect(record, updatedRecordAncestors);
-      result.set(record.key, recordLocation);
-    }
-  };
-  collect(module, []);
-  return result;
-}
-
 function ensureAllImportsAreUsed(
   module: Module,
   usedImports: Set<string>,
@@ -1049,5 +1017,38 @@ function freezeDeeply(o: unknown): void {
   Object.freeze(o);
   for (const v of Object.values(o)) {
     freezeDeeply(v);
+  }
+}
+
+export interface ModuleParser {
+  parseModule(modulePath: string): Result<MutableModule | null>;
+}
+
+class DefaultModuleParser implements ModuleParser {
+  constructor(
+    private readonly fileReader: FileReader,
+    private readonly rootPath: string,
+  ) {}
+
+  parseModule(modulePath: string): Result<MutableModule | null> {
+    const code = this.fileReader.readTextFile(
+      paths.join(this.rootPath, modulePath),
+    );
+    if (code === undefined) {
+      return {
+        result: null,
+        errors: [],
+      };
+    }
+
+    const tokens = tokenizeModule(code, modulePath);
+    if (tokens.errors.length !== 0) {
+      return {
+        result: null,
+        errors: tokens.errors,
+      };
+    }
+
+    return parseModule(tokens.result, modulePath);
   }
 }
