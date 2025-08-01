@@ -110,10 +110,7 @@ export class LanguageServerModuleSet {
     return new Workspace(rootUri);
   }
 
-  private parseSoiaModule(
-    content: string,
-    uri: string,
-  ): ModuleBundle {
+  private parseSoiaModule(content: string, uri: string): ModuleBundle {
     let astTree: Result<Module | null>;
     {
       const tokens = tokenizeModule(content, uri);
