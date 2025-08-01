@@ -34,6 +34,8 @@ describe("definition finder", () => {
 
         method GetBar(Outer.Foo): Bar;
         method GetBar2(Outer.Foo): Bar = 100;
+
+        const FOO: Outer.Foo = {};
       `,
   );
   fakeFileReader.pathToCode.set(
@@ -89,6 +91,13 @@ describe("definition finder", () => {
     expect(findDefinition(module, 367)).toMatch({
       modulePath: "path/to/module",
       position: 131,
+    });
+  });
+
+  it("works with constant type", () => {
+    expect(findDefinition(module, 404)).toMatch({
+      modulePath: "path/to/module",
+      position: 98,
     });
   });
 });

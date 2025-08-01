@@ -41,6 +41,15 @@ function findDefinitionInDeclaration(
 ): DefinitionMatch | null {
   switch (declaration.kind) {
     case "constant": {
+      if (declaration.type) {
+        const maybeMatch = findDefinitionInResolvedType(
+          declaration.type,
+          position,
+        );
+        if (maybeMatch) {
+          return maybeMatch;
+        }
+      }
       return findDefinitionInValue(declaration.value, position);
     }
     case "field": {

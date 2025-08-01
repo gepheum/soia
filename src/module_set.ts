@@ -238,17 +238,17 @@ export class ModuleSet {
       {
         const request = method.unresolvedRequestType;
         const requestType = typeResolver.resolve(request, "top-level");
+        method.requestType = requestType;
         if (requestType) {
           this.validateArrayKeys(requestType, errors);
-          method.requestType = requestType;
         }
       }
       {
         const response = method.unresolvedResponseType;
         const responseType = typeResolver.resolve(response, "top-level");
+        method.responseType = responseType;
         if (responseType) {
           this.validateArrayKeys(responseType, errors);
-          method.responseType = responseType;
         }
       }
     }
@@ -256,11 +256,11 @@ export class ModuleSet {
     for (const constant of module.constants) {
       const { unresolvedType } = constant;
       const type = typeResolver.resolve(unresolvedType, "top-level");
+      constant.type = type;
       if (type) {
         this.validateArrayKeys(type, errors);
         constant.valueAsDenseJson = //
           this.valueToDenseJson(constant.value, type, errors);
-        constant.type = type;
       }
     }
 
@@ -523,11 +523,11 @@ export class ModuleSet {
         const { primitive } = expectedType;
         if (
           value.kind !== "literal" ||
-          !valueHasPrimitiveType(token.text, expectedType.primitive)
+          !valueHasPrimitiveType(token.text, primitive)
         ) {
           errors.push({
             token: value.token,
-            expected: expectedType.primitive,
+            expected: primitive,
           });
           return undefined;
         }
