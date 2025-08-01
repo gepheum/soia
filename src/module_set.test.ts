@@ -508,7 +508,7 @@ describe("module set", () => {
                     },
                     key: {
                       pipeToken: { text: "|" },
-                      fieldNames: [{ text: "key" }],
+                      path: [{ name: { text: "key" } }],
                       keyType: {
                         kind: "primitive",
                         primitive: "string",
@@ -526,7 +526,13 @@ describe("module set", () => {
                     },
                     key: {
                       pipeToken: { text: "|" },
-                      fieldNames: [{ text: "key_enum" }, { text: "kind" }],
+                      path: [
+                        {
+                          name: { text: "key_enum" },
+                          declaration: { name: { text: "key_enum" } },
+                        },
+                        { name: { text: "kind" }, declaration: undefined },
+                      ],
                       keyType: {
                         kind: "record",
                         key: "path/to/module:141",
@@ -546,7 +552,10 @@ describe("module set", () => {
                       },
                       key: {
                         pipeToken: { text: "|" },
-                        fieldNames: [{ text: "user" }, { text: "key" }],
+                        path: [
+                          { name: { text: "user" } },
+                          { name: { text: "key" } },
+                        ],
                         keyType: {
                           kind: "primitive",
                           primitive: "string",

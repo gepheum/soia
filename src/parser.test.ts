@@ -327,28 +327,33 @@ describe("module parser", () => {
                       },
                       colNumber: 18,
                     },
-                    fieldNames: [
+                    path: [
                       {
-                        text: "x",
-                        position: 288,
-                        line: {
-                          lineNumber: 12,
-                          line: "        foos: [Foo|x.y];",
-                          position: 269,
-                          modulePath: "path/to/module",
+                        name: {
+                          text: "x",
+                          position: 288,
+                          line: {
+                            lineNumber: 12,
+                            line: "        foos: [Foo|x.y];",
+                            position: 269,
+                            modulePath: "path/to/module",
+                          },
+                          colNumber: 19,
                         },
-                        colNumber: 19,
                       },
                       {
-                        text: "y",
-                        position: 290,
-                        line: {
-                          lineNumber: 12,
-                          line: "        foos: [Foo|x.y];",
-                          position: 269,
-                          modulePath: "path/to/module",
+                        name: {
+                          text: "y",
+                          position: 290,
+                          line: {
+                            lineNumber: 12,
+                            line: "        foos: [Foo|x.y];",
+                            position: 269,
+                            modulePath: "path/to/module",
+                          },
+                          colNumber: 21,
                         },
-                        colNumber: 21,
+                        declaration: undefined,
                       },
                     ],
                     keyType: {

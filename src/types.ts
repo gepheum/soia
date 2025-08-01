@@ -147,6 +147,19 @@ export interface ResolvedRecordRef {
   readonly kind: "record";
   readonly key: RecordKey;
   readonly recordType: "struct" | "enum";
+
+  readonly nameParts: ReadonlyArray<{
+    /**
+     * A single name in the type reference.
+     * Can refer to either a report or a module alias.
+     */
+    token: Token;
+    /**
+     * Either the definition of the record or the aliased import declaration.
+     */
+    declaration: Record | ImportAlias;
+  }>;
+
   /**
    * Last token in the type reference. For example, if the type reference is
    * ".Foo.Bar", this is the token for "Bar".
@@ -154,8 +167,15 @@ export interface ResolvedRecordRef {
   readonly refToken: Token;
 }
 
+export interface MutableFieldPathItem {
+  /** The field name token in the field path. */
+  readonly name: Token;
+  /** The field declaration in the record definition. */
+  declaration?: Field;
+}
+
 /** A field or a sequence of field for keying items in an array. */
-export interface MutableFieldPath {
+export interface MutableFieldPath<Mutable extends boolean = true> {
   /** The "|" token. */
   readonly pipeToken: Token;
   /**
@@ -163,7 +183,9 @@ export interface MutableFieldPath {
    * If the key type is an enum type, the last field name is guaranteed to be
    * "kind".
    */
-  readonly fieldNames: readonly Token[];
+  readonly path: ReadonlyArray<
+    Mutable extends true ? MutableFieldPathItem : Readonly<MutableFieldPathItem>
+  >;
   /** The type used to key every item: either a primitive or an enum. */
   keyType: PrimitiveType | ResolvedRecordRef;
 }
@@ -171,7 +193,7 @@ export interface MutableFieldPath {
 export type FieldPath<Mutable extends boolean = boolean> = //
   Mutable extends true //
     ? MutableFieldPath
-    : Readonly<MutableFieldPath>;
+    : Readonly<MutableFieldPath<false>>;
 
 export interface ArrayType<
   Type = ResolvedType,
@@ -311,6 +333,7 @@ export interface Import {
   readonly importedNames: Token[];
   /** The token corresponding to the quoted string. */
   readonly modulePath: Token;
+  readonly resolvedModulePath: string | undefined;
 }
 
 export interface ImportAlias {
@@ -319,6 +342,7 @@ export interface ImportAlias {
   readonly name: Token;
   /** The token corresponding to the quoted string. */
   readonly modulePath: Token;
+  readonly resolvedModulePath: string | undefined;
 }
 
 export interface MutableMethod<Mutable extends boolean = true> {

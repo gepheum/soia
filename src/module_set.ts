@@ -85,7 +85,7 @@ export class ModuleSet {
       ) {
         continue;
       }
-      const otherModulePath = getModulePath(declaration, modulePath, errors);
+      const otherModulePath = declaration.resolvedModulePath;
       if (otherModulePath === undefined) {
         // An error was already registered.
         continue;
@@ -385,12 +385,13 @@ export class ModuleSet {
       if (!key) {
         return;
       }
-      const { fieldNames } = key;
+      const { path } = key;
       // Iterate the fields in the sequence.
       let currentType = item;
       let enumRef: ResolvedRecordRef | undefined;
-      for (let i = 0; i < fieldNames.length; ++i) {
-        const fieldName = fieldNames[i]!;
+      for (let i = 0; i < path.length; ++i) {
+        const pathItem = path[i]!;
+        const fieldName = pathItem.name;
         if (currentType.kind !== "record") {
           if (i === 0) {
             errors.push({
@@ -398,7 +399,7 @@ export class ModuleSet {
               message: "Item must have struct type",
             });
           } else {
-            const previousFieldName = fieldNames[i - 1]!;
+            const previousFieldName = path[i - 1]!.name;
             errors.push({
               token: previousFieldName,
               message: "Must have struct type",
@@ -416,6 +417,7 @@ export class ModuleSet {
             });
             return undefined;
           }
+          pathItem.declaration = field;
           if (!field.type) {
             // An error was already registered.
             return;
@@ -439,7 +441,7 @@ export class ModuleSet {
       }
       if (currentType.kind !== "primitive") {
         errors.push({
-          token: fieldNames.at(-1)!,
+          token: path.at(-1)!.name,
           message: "Does not have primitive type",
         });
         return;
@@ -731,10 +733,11 @@ function validateKeyedItems(
   fieldPath: FieldPath,
   errors: ErrorSink,
 ): void {
-  const { keyType, fieldNames } = fieldPath;
+  const { keyType, path } = fieldPath;
   const tryExtractKeyFromItem = (item: Value): Value | undefined => {
     let value = item;
-    for (const fieldName of fieldNames) {
+    for (const pathItem of path) {
+      const fieldName = pathItem.name;
       if (value.kind === "literal" && fieldName.text === "kind") {
         // An enum constant.
         return value;
@@ -880,6 +883,10 @@ export class TypeResolver {
     });
 
     let it = start;
+    const nameParts: Array<{
+      token: Token;
+      declaration: Record | ImportAlias;
+    }> = [];
     for (let i = 0; i < recordRef.nameParts.length; ++i) {
       const namePart = recordRef.nameParts[i]!;
       const name = namePart.text;
@@ -899,7 +906,7 @@ export class TypeResolver {
           return undefined;
         }
         usedImports.add(name);
-        const newModulePath = getModulePath(newIt, module.path, []);
+        const newModulePath = newIt.resolvedModulePath;
         if (newModulePath === undefined) {
           return undefined;
         }
@@ -932,6 +939,7 @@ export class TypeResolver {
         this.errors.push(makeNotARecordError(namePart));
         return undefined;
       }
+      nameParts.push({ token: namePart, declaration: newIt });
     }
     if (it.kind !== "record") {
       const name = recordRef.nameParts[0]!;
@@ -942,41 +950,10 @@ export class TypeResolver {
       kind: "record",
       key: it.key,
       recordType: it.recordType,
+      nameParts: nameParts,
       refToken: recordRef.nameParts.at(-1)!,
     };
   }
-}
-
-function getModulePath(
-  declaration: Import | ImportAlias,
-  originModulePath: string,
-  errors: ErrorSink,
-): string | undefined {
-  let modulePath = unquoteAndUnescape(declaration.modulePath.text);
-  if (/\\/.test(modulePath)) {
-    errors.push({
-      token: declaration.modulePath,
-      message: "Replace backslash with slash",
-    });
-    return undefined;
-  }
-  if (modulePath.startsWith("./") || modulePath.startsWith("../")) {
-    // This is a relative path from the module. Let's transform it into a
-    // relative path from root.
-    modulePath = paths.join(originModulePath, "..", modulePath);
-  }
-  // "a/./b/../c" => "a/c"
-  // Note that `paths.normalize` will use backslashes on Windows.
-  // We don't want that.
-  modulePath = paths.normalize(modulePath).replace(/\\/g, "/");
-  if (modulePath.startsWith(`../`)) {
-    errors.push({
-      token: declaration.modulePath,
-      message: "Module path must point to a file within root",
-    });
-    return undefined;
-  }
-  return modulePath;
 }
 
 function ensureAllImportsAreUsed(

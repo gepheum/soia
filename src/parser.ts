@@ -1,4 +1,5 @@
 import * as casing from "./casing.js";
+import { unquoteAndUnescape } from "./literals.js";
 import type {
   Declaration,
   ErrorSink,
@@ -27,6 +28,7 @@ import type {
   UnresolvedRecordRef,
   UnresolvedType,
 } from "./types.js";
+import * as paths from "path";
 
 /** Runs syntactic analysis on a module. */
 export function parseModule(
@@ -524,9 +526,12 @@ function parseFieldPath(
       break;
     }
   }
+  const path = fieldNames.map((name) => ({
+    name: name,
+  }));
   return {
     pipeToken: pipeToken,
-    fieldNames: fieldNames,
+    path,
     // Just because we need to provide a value.
     // The correct value will be populated at a later stage.
     keyType: { kind: "primitive", primitive: "bool" },
@@ -646,10 +651,17 @@ function parseImportAs(it: TokenIterator): ImportAlias | null {
     return null;
   }
   it.expectThenMove([";"]);
+  const modulePath = modulePathMatch.token;
+  const resolvedModulePath = resolveModulePath(
+    modulePath,
+    modulePath.line.modulePath,
+    it.errors,
+  );
   return {
     kind: "import-alias",
     name: aliasMatch.token,
-    modulePath: modulePathMatch.token,
+    modulePath,
+    resolvedModulePath,
   };
 }
 
@@ -672,10 +684,17 @@ function parseImportGivenNames(
     return null;
   }
   it.expectThenMove([";"]);
+  const modulePath = modulePathMatch.token;
+  const resolvedModulePath = resolveModulePath(
+    modulePath,
+    modulePath.line.modulePath,
+    it.errors,
+  );
   return {
     kind: "import",
     importedNames,
-    modulePath: modulePathMatch.token,
+    modulePath: modulePath,
+    resolvedModulePath,
   };
 }
 
@@ -1050,4 +1069,36 @@ function collectModuleRecords(
   };
   collect(declarations, []);
   return result;
+}
+
+function resolveModulePath(
+  pathToken: Token,
+  originModulePath: string,
+  errors: ErrorSink,
+): string | undefined {
+  let modulePath = unquoteAndUnescape(pathToken.text);
+  if (/\\/.test(modulePath)) {
+    errors.push({
+      token: pathToken,
+      message: "Replace backslash with slash",
+    });
+    return undefined;
+  }
+  if (modulePath.startsWith("./") || modulePath.startsWith("../")) {
+    // This is a relative path from the module. Let's transform it into a
+    // relative path from root.
+    modulePath = paths.join(originModulePath, "..", modulePath);
+  }
+  // "a/./b/../c" => "a/c"
+  // Note that `paths.normalize` will use backslashes on Windows.
+  // We don't want that.
+  modulePath = paths.normalize(modulePath).replace(/\\/g, "/");
+  if (modulePath.startsWith(`../`)) {
+    errors.push({
+      token: pathToken,
+      message: "Module path must point to a file within root",
+    });
+    return undefined;
+  }
+  return modulePath;
 }
