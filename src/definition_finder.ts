@@ -50,7 +50,7 @@ function findDefinitionInDeclaration(
           return maybeMatch;
         }
       }
-      return findDefinitionInValue(declaration.value, position);
+      return null;
     }
     case "field": {
       if (declaration.type) {
@@ -101,15 +101,6 @@ function findDefinitionInDeclaration(
   }
 }
 
-function findDefinitionInValue(
-  value: Value,
-  position: number,
-): DefinitionMatch | null {
-  // TODO: we might want to support jump-to-definition when the user clicks on
-  // a key within an object.
-  return null;
-}
-
 function findDefinitionInResolvedType(
   type: ResolvedType,
   position: number,
@@ -155,4 +146,82 @@ function tokenToMatch(token: Token): DefinitionMatch {
     modulePath: token.line.modulePath,
     position: token.position,
   };
+}
+
+export function findLinkableTokens(module: Module): readonly Token[] {
+  const finder = new LinkableTokensFinder();
+  finder.findInDeclarations(module.declarations);
+  return finder.tokens;
+}
+
+class LinkableTokensFinder {
+  tokens: Token[] = [];
+
+  findInDeclarations(declarations: readonly Declaration[]): void {
+    for (const declaration of declarations) {
+      this.findInDeclaration(declaration);
+    }
+  }
+
+  findInDeclaration(declaration: Declaration): null {
+    switch (declaration.kind) {
+      case "constant":
+      case "field": {
+        if (declaration.type) {
+          this.findInResolvedType(declaration.type);
+        }
+        return null;
+      }
+      case "import":
+      case "import-alias": {
+        this.tokens.push(declaration.modulePath);
+        return null;
+      }
+      case "method": {
+        if (declaration.requestType) {
+          this.findInResolvedType(declaration.requestType);
+        }
+        if (declaration.responseType) {
+          this.findInResolvedType(declaration.responseType);
+        }
+        return null;
+      }
+      case "record": {
+        this.findInDeclarations(declaration.fields);
+        return null;
+      }
+      case "removed": {
+        return null;
+      }
+    }
+  }
+
+  findInResolvedType(type: ResolvedType): null {
+    switch (type.kind) {
+      case "array": {
+        if (type.key) {
+          for (const item of type.key.path) {
+            if (item.declaration) {
+              this.tokens.push(item.name);
+            }
+          }
+        }
+        return this.findInResolvedType(type.item);
+      }
+      case "optional": {
+        return this.findInResolvedType(type.other);
+      }
+      case "primitive": {
+        return null;
+      }
+      case "record": {
+        for (const namePart of type.nameParts) {
+          if (namePart.declaration) {
+            this.tokens.push(namePart.token);
+          }
+        }
+        return null;
+      }
+    }
+  }
 }

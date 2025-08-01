@@ -1,4 +1,4 @@
-import { findDefinition } from "./definition_finder.js";
+import { findDefinition, findLinkableTokens } from "./definition_finder.js";
 import type { FileReader } from "./io.js";
 import { ModuleSet } from "./module_set.js";
 import { expect } from "buckwheat";
@@ -99,5 +99,81 @@ describe("definition finder", () => {
       modulePath: "path/to/module",
       position: 98,
     });
+  });
+
+  it("find linkable tokens works", () => {
+    expect(findLinkableTokens(module)).toMatch([
+      {
+        text: '"./other/module"',
+        position: 39,
+        line: {
+          modulePath: "path/to/module",
+        },
+      },
+      {
+        text: "Outer",
+        position: 152,
+      },
+      {
+        text: "Foo",
+        position: 158,
+      },
+      {
+        text: "Outer",
+        position: 180,
+      },
+      {
+        text: "Foo",
+        position: 186,
+      },
+      {
+        text: "Inner",
+        position: 235,
+      },
+      {
+        text: "other_module",
+        position: 257,
+      },
+      {
+        text: "Outer",
+        position: 270,
+      },
+      {
+        text: "Zoo",
+        position: 276,
+      },
+      {
+        text: "Outer",
+        position: 314,
+      },
+      {
+        text: "Foo",
+        position: 320,
+      },
+      {
+        text: "Bar",
+        position: 326,
+      },
+      {
+        text: "Outer",
+        position: 354,
+      },
+      {
+        text: "Foo",
+        position: 360,
+      },
+      {
+        text: "Bar",
+        position: 366,
+      },
+      {
+        text: "Outer",
+        position: 397,
+      },
+      {
+        text: "Foo",
+        position: 403,
+      },
+    ]);
   });
 });
