@@ -11,7 +11,6 @@ import { parseArgs } from "node:util";
 import * as paths from "path";
 import Watcher from "watcher";
 import * as yaml from "yaml";
-import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
 
 interface GeneratorBundle<Config = unknown> {
