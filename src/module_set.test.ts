@@ -1045,15 +1045,18 @@ describe("module set", () => {
     fakeFileReader.pathToCode.set(
       "path/to/root/path/to/module",
       `
-        import Bar from "./other_module";
+        import Bar, Zoo from "./other_module";
 
-        struct Foo {}
+        struct Foo {
+          zoo: Zoo;
+        }
       `,
     );
     fakeFileReader.pathToCode.set(
       "path/to/root/path/to/other_module",
       `
         struct Bar {}
+        struct Zoo {}
       `,
     );
 

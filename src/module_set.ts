@@ -266,8 +266,6 @@ export class ModuleSet {
 
     ensureAllImportsAreUsed(module, usedImports, errors);
 
-    freezeDeeply(module);
-
     return result;
   }
 
@@ -1004,19 +1002,6 @@ function ensureAllImportsAreUsed(
         });
       }
     }
-  }
-}
-
-function freezeDeeply(o: unknown): void {
-  if (!(o instanceof Object)) {
-    return;
-  }
-  if (Object.isFrozen(o)) {
-    return;
-  }
-  Object.freeze(o);
-  for (const v of Object.values(o)) {
-    freezeDeeply(v);
   }
 }
 
