@@ -1,4 +1,7 @@
-import { findDefinition, findLinkableTokens } from "./definition_finder.js";
+import {
+  findDefinition,
+  findTokensWithDefinition,
+} from "./definition_finder.js";
 import type { FileReader } from "./io.js";
 import { ModuleSet } from "./module_set.js";
 import { expect } from "buckwheat";
@@ -101,8 +104,8 @@ describe("definition finder", () => {
     });
   });
 
-  it("find linkable tokens works", () => {
-    expect(findLinkableTokens(module)).toMatch([
+  it("findTokensWithDefinition works", () => {
+    expect(findTokensWithDefinition(module)).toMatch([
       {
         text: '"./other/module"',
         position: 39,

@@ -148,13 +148,13 @@ function tokenToMatch(token: Token): DefinitionMatch {
   };
 }
 
-export function findLinkableTokens(module: Module): readonly Token[] {
-  const finder = new LinkableTokensFinder();
+export function findTokensWithDefinition(module: Module): readonly Token[] {
+  const finder = new TokensWithDefinitionFinder();
   finder.findInDeclarations(module.declarations);
   return finder.tokens;
 }
 
-class LinkableTokensFinder {
+class TokensWithDefinitionFinder {
   tokens: Token[] = [];
 
   findInDeclarations(declarations: readonly Declaration[]): void {

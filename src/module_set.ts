@@ -85,7 +85,23 @@ export class ModuleSet {
       ) {
         continue;
       }
-      const otherModulePath = declaration.resolvedModulePath;
+      let otherModulePath = declaration.resolvedModulePath;
+      // Special logic for IDE extensions: the `resolvedModulePath` may be an
+      // absolute file URI instead of a module path. This is because IDE
+      // extensions may not know the root path of the soia workspace when the
+      // module is parsed.
+      if (
+        this.moduleParser.rootUri &&
+        otherModulePath?.startsWith(this.moduleParser.rootUri)
+      ) {
+        // Transform the absolute file URI into a module path.
+        otherModulePath = otherModulePath.slice(
+          this.moduleParser.rootUri.length,
+        );
+        if (otherModulePath.startsWith("/")) {
+          otherModulePath = otherModulePath.slice(1);
+        }
+      }
       if (otherModulePath === undefined) {
         // An error was already registered.
         continue;
@@ -984,6 +1000,11 @@ function ensureAllImportsAreUsed(
 
 export interface ModuleParser {
   parseModule(modulePath: string): Result<MutableModule | null>;
+  /**
+   * URI of the root directory.
+   * Only needed to resolve imports in the context of IDE extensions.
+   */
+  readonly rootUri?: string;
 }
 
 class DefaultModuleParser implements ModuleParser {

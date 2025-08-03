@@ -333,6 +333,12 @@ export interface Import {
   readonly importedNames: Token[];
   /** The token corresponding to the quoted string. */
   readonly modulePath: Token;
+  /**
+   * The path to the module that was imported, or `undefined` if there was an
+   * error.
+   * Special case: if this logic runs from an IDE extension, this string may be
+   * a file URI, e.g. "file:///path/to/root/path/to/module.soia".
+   */
   readonly resolvedModulePath: string | undefined;
 }
 
@@ -342,6 +348,12 @@ export interface ImportAlias {
   readonly name: Token;
   /** The token corresponding to the quoted string. */
   readonly modulePath: Token;
+  /**
+   * The path to the module that was imported, or `undefined` if there was an
+   * error.
+   * Special case: if this logic runs from an IDE extension, this string may be
+   * a file URI, e.g. "file:///path/to/root/path/to/module.soia".
+   */
   readonly resolvedModulePath: string | undefined;
 }
 
