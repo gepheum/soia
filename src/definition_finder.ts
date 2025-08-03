@@ -2,13 +2,7 @@
  * Utilities to help implement the jump-to-definition functionality for soia
  * files in IDEs.
  */
-import type {
-  Declaration,
-  Module,
-  ResolvedType,
-  Token,
-  Value,
-} from "./types.js";
+import type { Declaration, Module, ResolvedType, Token } from "./types.js";
 
 export interface DefinitionMatch {
   modulePath: string;

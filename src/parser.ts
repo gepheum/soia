@@ -1,5 +1,4 @@
 import * as casing from "./casing.js";
-import { unquoteAndUnescape } from "./literals.js";
 import type {
   Declaration,
   ErrorSink,
@@ -652,16 +651,10 @@ function parseImportAs(it: TokenIterator): ImportAlias | null {
   }
   it.expectThenMove([";"]);
   const modulePath = modulePathMatch.token;
-  const resolvedModulePath = resolveModulePath(
-    modulePath,
-    modulePath.line.modulePath,
-    it.errors,
-  );
   return {
     kind: "import-alias",
     name: aliasMatch.token,
     modulePath,
-    resolvedModulePath,
   };
 }
 
@@ -685,16 +678,10 @@ function parseImportGivenNames(
   }
   it.expectThenMove([";"]);
   const modulePath = modulePathMatch.token;
-  const resolvedModulePath = resolveModulePath(
-    modulePath,
-    modulePath.line.modulePath,
-    it.errors,
-  );
   return {
     kind: "import",
     importedNames,
-    modulePath: modulePath,
-    resolvedModulePath,
+    modulePath,
   };
 }
 
@@ -1069,36 +1056,4 @@ function collectModuleRecords(
   };
   collect(declarations, []);
   return result;
-}
-
-function resolveModulePath(
-  pathToken: Token,
-  originModulePath: string,
-  errors: ErrorSink,
-): string | undefined {
-  let modulePath = unquoteAndUnescape(pathToken.text);
-  if (/\\/.test(modulePath)) {
-    errors.push({
-      token: pathToken,
-      message: "Replace backslash with slash",
-    });
-    return undefined;
-  }
-  if (modulePath.startsWith("./") || modulePath.startsWith("../")) {
-    // This is a relative path from the module. Let's transform it into a
-    // relative path from root.
-    modulePath = paths.join(originModulePath, "..", modulePath);
-  }
-  // "a/./b/../c" => "a/c"
-  // Note that `paths.normalize` will use backslashes on Windows.
-  // We don't want that.
-  modulePath = paths.normalize(modulePath).replace(/\\/g, "/");
-  if (modulePath.startsWith(`../`)) {
-    errors.push({
-      token: pathToken,
-      message: "Module path must point to a file within root",
-    });
-    return undefined;
-  }
-  return modulePath;
 }

@@ -85,23 +85,12 @@ export class ModuleSet {
       ) {
         continue;
       }
-      let otherModulePath = declaration.resolvedModulePath;
-      // Special logic for IDE extensions: the `resolvedModulePath` may be an
-      // absolute file URI instead of a module path. This is because IDE
-      // extensions may not know the root path of the soia workspace when the
-      // module is parsed.
-      if (
-        this.moduleParser.rootUri &&
-        otherModulePath?.startsWith(this.moduleParser.rootUri)
-      ) {
-        // Transform the absolute file URI into a module path.
-        otherModulePath = otherModulePath.slice(
-          this.moduleParser.rootUri.length,
-        );
-        if (otherModulePath.startsWith("/")) {
-          otherModulePath = otherModulePath.slice(1);
-        }
-      }
+      const otherModulePath = resolveModulePath(
+        declaration.modulePath,
+        modulePath,
+        errors,
+      );
+      declaration.resolvedModulePath = otherModulePath;
       if (otherModulePath === undefined) {
         // An error was already registered.
         continue;
@@ -222,6 +211,7 @@ export class ModuleSet {
     const usedImports = new Set<string>();
     const typeResolver = new TypeResolver(
       module,
+      modulePath,
       this.modules,
       usedImports,
       errors,
@@ -821,9 +811,10 @@ function validateKeyedItems(
   }
 }
 
-export class TypeResolver {
+class TypeResolver {
   constructor(
     private readonly module: Module,
+    private readonly modulePath: string,
     private readonly modules: Map<string, Result<Module | null>>,
     private readonly usedImports: Set<string>,
     private readonly errors: ErrorSink,
@@ -870,7 +861,7 @@ export class TypeResolver {
     // reference, or the module if the record reference is absolute (starts with
     // a dot).
     let start: Record | Module | undefined;
-    const { errors, module, modules, usedImports } = this;
+    const { errors, module, modulePath, modules, usedImports } = this;
     if (recordOrigin !== "top-level") {
       if (!recordRef.absolute) {
         // Traverse the chain of ancestors from most nested to top-level.
@@ -1004,7 +995,7 @@ export interface ModuleParser {
    * URI of the root directory.
    * Only needed to resolve imports in the context of IDE extensions.
    */
-  readonly rootUri?: string;
+  readonly rootUri: string | undefined;
 }
 
 class DefaultModuleParser implements ModuleParser {
@@ -1034,4 +1025,38 @@ class DefaultModuleParser implements ModuleParser {
 
     return parseModule(tokens.result, modulePath);
   }
+
+  readonly rootUri = undefined;
+}
+
+function resolveModulePath(
+  pathToken: Token,
+  originModulePath: string,
+  errors: ErrorSink,
+): string | undefined {
+  let modulePath = unquoteAndUnescape(pathToken.text);
+  if (/\\/.test(modulePath)) {
+    errors.push({
+      token: pathToken,
+      message: "Replace backslash with slash",
+    });
+    return undefined;
+  }
+  if (modulePath.startsWith("./") || modulePath.startsWith("../")) {
+    // This is a relative path from the module. Let's transform it into a
+    // relative path from root.
+    modulePath = paths.join(originModulePath, "..", modulePath);
+  }
+  // "a/./b/../c" => "a/c"
+  // Note that `paths.normalize` will use backslashes on Windows.
+  // We don't want that.
+  modulePath = paths.normalize(modulePath).replace(/\\/g, "/");
+  if (modulePath.startsWith(`../`)) {
+    errors.push({
+      token: pathToken,
+      message: "Module path must point to a file within root",
+    });
+    return undefined;
+  }
+  return modulePath;
 }

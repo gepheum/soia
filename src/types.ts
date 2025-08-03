@@ -328,34 +328,29 @@ export interface Record<Mutable extends boolean = boolean> {
 
 export type MutableRecord = Record<true>;
 
-export interface Import {
+export interface MutableImport {
   readonly kind: "import";
   readonly importedNames: Token[];
   /** The token corresponding to the quoted string. */
   readonly modulePath: Token;
-  /**
-   * The path to the module that was imported, or `undefined` if there was an
-   * error.
-   * Special case: if this logic runs from an IDE extension, this string may be
-   * a file URI, e.g. "file:///path/to/root/path/to/module.soia".
-   */
-  readonly resolvedModulePath: string | undefined;
+  resolvedModulePath?: string;
 }
 
-export interface ImportAlias {
+export type Import<Mutable extends boolean = boolean> = Mutable extends true
+  ? MutableImport
+  : Readonly<MutableImport>;
+
+export interface MutableImportAlias {
   readonly kind: "import-alias";
   /** The alias. */
   readonly name: Token;
   /** The token corresponding to the quoted string. */
   readonly modulePath: Token;
-  /**
-   * The path to the module that was imported, or `undefined` if there was an
-   * error.
-   * Special case: if this logic runs from an IDE extension, this string may be
-   * a file URI, e.g. "file:///path/to/root/path/to/module.soia".
-   */
-  readonly resolvedModulePath: string | undefined;
+  resolvedModulePath?: string;
 }
+
+export type ImportAlias<Mutable extends boolean = boolean> =
+  Mutable extends true ? MutableImportAlias : Readonly<MutableImportAlias>;
 
 export interface MutableMethod<Mutable extends boolean = true> {
   readonly kind: "method";
@@ -449,8 +444,8 @@ export type DenseJson = null | boolean | number | string | readonly DenseJson[];
 /** A declaration which can appear at the top-level of a module. */
 export type ModuleLevelDeclaration<Mutable extends boolean = boolean> =
   | Record<Mutable>
-  | Import
-  | ImportAlias
+  | Import<Mutable>
+  | ImportAlias<Mutable>
   | Method<Mutable>
   | Constant<Mutable>;
 
