@@ -991,11 +991,6 @@ function ensureAllImportsAreUsed(
 
 export interface ModuleParser {
   parseModule(modulePath: string): Result<MutableModule | null>;
-  /**
-   * URI of the root directory.
-   * Only needed to resolve imports in the context of IDE extensions.
-   */
-  readonly rootUri: string | undefined;
 }
 
 class DefaultModuleParser implements ModuleParser {
@@ -1025,8 +1020,6 @@ class DefaultModuleParser implements ModuleParser {
 
     return parseModule(tokens.result, modulePath);
   }
-
-  readonly rootUri = undefined;
 }
 
 function resolveModulePath(
