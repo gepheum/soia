@@ -48,20 +48,13 @@ export function formatModule(tokens: readonly Token[]): string {
     const token = iterator.next();
     switch (token.text) {
       case "as":
+      case "const":
+      case "enum":
       case "import":
       case "method":
+      case "struct":
       case "*":
       case ":": {
-        sink.write(token.text + " ");
-        break;
-      }
-      case "const": {
-        inValue = true;
-        sink.write("const ");
-        break;
-      }
-      case "enum":
-      case "struct": {
         sink.write(token.text + " ");
         break;
       }
@@ -130,6 +123,7 @@ export function formatModule(tokens: readonly Token[]): string {
         break;
       }
       case "=": {
+        inValue = true;
         sink.write(" = ");
         break;
       }

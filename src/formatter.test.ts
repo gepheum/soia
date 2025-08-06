@@ -45,7 +45,7 @@ enum E2 {
 
 method M(Request):Response;
 
-/* a */const CONST: Type = [
+/* a */const CONST: [Type] = [
   1, [], {}, {
     "a" : true,
     'n\\\\"': null,
@@ -112,7 +112,7 @@ enum E2 {
 method M(Request): Response;
 
 /* a */
-const CONST: Type = [
+const CONST: [Type] = [
   1,
   [],
   {},
