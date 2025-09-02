@@ -1,6 +1,6 @@
-import * as exports from "./index.js";
 import { expect } from "buckwheat";
 import { describe, it } from "mocha";
+import * as exports from "./index.js";
 
 describe("index.ts", () => {
   it("exports the right symbols", () => {

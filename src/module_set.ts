@@ -1,3 +1,4 @@
+import * as paths from "path";
 import { FileReader } from "./io.js";
 import {
   isStringLiteral,
@@ -33,7 +34,6 @@ import type {
   UnresolvedType,
   Value,
 } from "./types.js";
-import * as paths from "path";
 
 export class ModuleSet {
   static create(fileReader: FileReader, rootPath: string): ModuleSet {
@@ -288,7 +288,7 @@ export class ModuleSet {
     }
   }
 
-  private storeFieldRecursivity(record: MutableRecord) {
+  private storeFieldRecursivity(record: MutableRecord): void {
     for (const field of record.fields) {
       if (!field.type) continue;
       const modes: ReadonlyArray<"soft" | "hard"> =
@@ -861,7 +861,7 @@ class TypeResolver {
     // reference, or the module if the record reference is absolute (starts with
     // a dot).
     let start: Record | Module | undefined;
-    const { errors, module, modulePath, modules, usedImports } = this;
+    const { errors, module, modules, usedImports } = this;
     if (recordOrigin !== "top-level") {
       if (!recordRef.absolute) {
         // Traverse the chain of ancestors from most nested to top-level.
@@ -904,7 +904,7 @@ class TypeResolver {
       } else if (newIt.kind === "record") {
         it = newIt;
       } else if (newIt.kind === "import" || newIt.kind === "import-alias") {
-        const cannotReimportError = () => ({
+        const cannotReimportError = (): SoiaError => ({
           token: namePart,
           message: `Cannot reimport imported name '${name}'`,
         });

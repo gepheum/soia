@@ -45,7 +45,7 @@ export function convertCase(
 }
 
 /** Returns a new string with the first letter of `name` capitalized. */
-export function capitalize(name: string) {
+export function capitalize(name: string): string {
   return name[0]!.toUpperCase() + name.slice(1);
 }
 

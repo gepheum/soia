@@ -1,6 +1,6 @@
-import { encodeInt32 } from "./encoding.js";
 import { expect } from "buckwheat";
 import { describe, it } from "mocha";
+import { encodeInt32 } from "./encoding.js";
 
 function toHexString(a: Uint8Array): string {
   return [...a].map((x) => x.toString(16).padStart(2, "0")).join("");

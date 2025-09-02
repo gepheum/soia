@@ -23,7 +23,7 @@ export function tokenizeModule(
   //
   // To iterate on this regex, use https://regex101.com/.
   const re =
-    /(\/\*([^*]|\*[^\/])*(\*\/)?)|(\/\/[^\n\r]*)|(\b-?(0|[1-9][0-9]*)(\.[0-9]+)?)\b|\b(\w+)\b|([ \n\r\t]+)|([{}\[\]\(\)*.:=;|?\-,])|("(\\(\n|\r|\n\r|.)|[^\\\"\n\r])*"?)|('(\\(\n|\r|\n\r|.)|[^\\\'\n\r])*'?)|($)/g;
+    /(\/\*([^*]|\*[^/])*(\*\/)?)|(\/\/[^\n\r]*)|(\b-?(0|[1-9][0-9]*)(\.[0-9]+)?)\b|\b(\w+)\b|([ \n\r\t]+)|([{}[\]()*.:=;|?\-,])|("(\\(\n|\r|\n\r|.)|[^\\"\n\r])*"?)|('(\\(\n|\r|\n\r|.)|[^\\'\n\r])*'?)|($)/g;
 
   let group: RegExpExecArray | null;
   let expectedPosition = 0;
@@ -94,7 +94,7 @@ export function tokenizeModule(
         continue;
       }
       const stringLiteralRe =
-        /^["'](\\(\r\n|u[0-9A-Fa-f]{4}|["'\\\/bfnrt\n\r])|[^\\])*["']$/;
+        /^["'](\\(\r\n|u[0-9A-Fa-f]{4}|["'\\/bfnrt\n\r])|[^\\])*["']$/;
       if (!stringLiteralRe.test(stringLiteral)) {
         errors.push({
           token: token,

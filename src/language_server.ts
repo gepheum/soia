@@ -1,3 +1,5 @@
+import * as yaml from "yaml";
+import { fromZodError } from "zod-validation-error";
 import { SoiaConfig } from "./config.js";
 import { ModuleParser, ModuleSet } from "./module_set.js";
 import { parseModule } from "./parser.js";
@@ -10,8 +12,6 @@ import type {
   Result,
   SoiaError,
 } from "./types.js";
-import * as yaml from "yaml";
-import { fromZodError } from "zod-validation-error";
 
 export class LanguageServerModuleSet {
   constructor(private readonly rootPath: string) {}
@@ -24,7 +24,7 @@ export class LanguageServerModuleSet {
         const workspace = this.parseSoiaConfig(content, uri);
         if (workspace) {
           this.workspaces.set(uri, workspace);
-          this.reassignModulesToWorkspaces(uri);
+          this.reassignModulesToWorkspaces();
         }
         break;
       }
@@ -48,7 +48,7 @@ export class LanguageServerModuleSet {
     switch (fileType) {
       case "soia.yml": {
         if (this.workspaces.delete(uri)) {
-          this.reassignModulesToWorkspaces(uri);
+          this.reassignModulesToWorkspaces();
         }
         break;
       }
@@ -66,7 +66,7 @@ export class LanguageServerModuleSet {
     }
   }
 
-  private reassignModulesToWorkspaces(deletedUri: string): void {
+  private reassignModulesToWorkspaces(): void {
     if (this.reassigneModulesTimeout) {
       // Already scheduled, do nothing.
       return;
@@ -132,7 +132,10 @@ export class LanguageServerModuleSet {
   /** Finds the workspace which contains the given module URI. */
   private findModuleWorkspace(moduleUri: string): ModuleWorkspace | undefined {
     let match: Workspace | undefined;
-    const leftIsBetter = (left: Workspace, right: Workspace | undefined) => {
+    const leftIsBetter = (
+      left: Workspace,
+      right: Workspace | undefined,
+    ): boolean => {
       if (right === undefined || left.rootUri.length < right.rootUri.length) {
         return true;
       }

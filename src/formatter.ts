@@ -7,7 +7,7 @@ export function formatModule(tokens: readonly Token[]): string {
   let indentDepth = 0;
   const iterator = new TokenIterator(tokens);
 
-  const copyInlineComments = () => {
+  const copyInlineComments = (): void => {
     while (
       iterator.hasNext() &&
       isComment(iterator.peek().text) &&
@@ -18,7 +18,7 @@ export function formatModule(tokens: readonly Token[]): string {
     }
   };
 
-  const breakLine = () => {
+  const breakLine = (): void => {
     copyInlineComments();
     const { lastLineOnlyHasWhitespaces } = sink;
     if (iterator.hasNext()) {
@@ -34,12 +34,12 @@ export function formatModule(tokens: readonly Token[]): string {
     }
   };
 
-  const breakLineAndIndent = () => {
+  const breakLineAndIndent = (): void => {
     ++indentDepth;
     breakLine();
   };
 
-  const unindent = () => {
+  const unindent = (): void => {
     --indentDepth;
     sink.removeWhitespaceSuffix("  ");
   };

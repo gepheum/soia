@@ -1,11 +1,11 @@
+import { expect } from "buckwheat";
+import { describe, it } from "mocha";
 import {
   findDefinition,
   findTokensWithDefinition,
 } from "./definition_finder.js";
 import type { FileReader } from "./io.js";
 import { ModuleSet } from "./module_set.js";
-import { expect } from "buckwheat";
-import { describe, it } from "mocha";
 
 class FakeFileReader implements FileReader {
   readTextFile(modulePath: string): string | undefined {

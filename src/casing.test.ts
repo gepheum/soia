@@ -1,7 +1,7 @@
-import { capitalize, convertCase, validate } from "./casing.js";
-import type { SoiaError, Token } from "./types.js";
 import { expect } from "buckwheat";
 import { describe, it } from "mocha";
+import { capitalize, convertCase, validate } from "./casing.js";
+import type { SoiaError, Token } from "./types.js";
 
 function makeToken(text: string): Token {
   return {

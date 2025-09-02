@@ -1,7 +1,7 @@
-import type { FileReader } from "./io.js";
-import { ModuleSet } from "./module_set.js";
 import { expect } from "buckwheat";
 import { describe, it } from "mocha";
+import type { FileReader } from "./io.js";
+import { ModuleSet } from "./module_set.js";
 
 class FakeFileReader implements FileReader {
   readTextFile(modulePath: string): string | undefined {

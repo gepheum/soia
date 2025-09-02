@@ -27,7 +27,6 @@ import type {
   UnresolvedRecordRef,
   UnresolvedType,
 } from "./types.js";
-import * as paths from "path";
 
 /** Runs syntactic analysis on a module. */
 export function parseModule(
@@ -98,10 +97,10 @@ function parseDeclarations(
 ): MutableDeclaration[] {
   const result: MutableDeclaration[] = [];
   // Returns true on a next token if it indicates that the statement is over.
-  const isEndToken = (t: string) =>
+  const isEndToken = (t: string): boolean =>
     t === "" || (parentNode !== "module" && t === "}");
   // Returns true if the token may be the last token of a valid statement.
-  const isLastToken = (t: string) => t === "}" || t === ";";
+  const isLastToken = (t: string): boolean => t === "}" || t === ";";
   while (!isEndToken(it.peek())) {
     const startIndex = it.index;
     const declaration = parseDeclaration(it, parentNode);
@@ -892,7 +891,7 @@ class TokenIsIdentifier extends TokenPredicate {
     return /^\w/.test(token);
   }
 
-  override what() {
+  override what(): string {
     return "identifier";
   }
 }
@@ -904,7 +903,7 @@ class TokenIsInt extends TokenPredicate {
     return /^[0-9]+$/.test(token);
   }
 
-  override what() {
+  override what(): string {
     return "number";
   }
 }
@@ -916,7 +915,7 @@ class TokenIsNumber extends TokenPredicate {
     return /^[0-9]/.test(token);
   }
 
-  override what() {
+  override what(): string {
     return "number";
   }
 }
@@ -928,7 +927,7 @@ class TokenIsStringLiteral extends TokenPredicate {
     return /^["']/.test(token);
   }
 
-  override what() {
+  override what(): string {
     return "string literal";
   }
 }
@@ -1038,7 +1037,7 @@ function collectModuleRecords(
   const collect = (
     declarations: readonly Declaration[],
     ancestors: readonly Record[],
-  ) => {
+  ): void => {
     for (const record of declarations) {
       if (record.kind !== "record") continue;
       const updatedRecordAncestors = ancestors.concat([record]);

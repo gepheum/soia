@@ -48,7 +48,7 @@ export function valueHasPrimitiveType(
       return isIntLiteral(token, BigInt(0), BigInt("18446744073709551615"));
     case "float32":
     case "float64":
-      return /^[\-0-9]/.test(token);
+      return /^[-0-9]/.test(token);
     case "string":
       return isStringLiteral(token);
   }

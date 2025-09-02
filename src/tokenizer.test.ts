@@ -1,6 +1,6 @@
-import { tokenizeModule } from "./tokenizer.js";
 import { expect } from "buckwheat";
 import { describe, it } from "mocha";
+import { tokenizeModule } from "./tokenizer.js";
 
 describe("tokenizer", () => {
   it("tokenizes module with simple struct", () => {

@@ -1,10 +1,4 @@
 #!/usr/bin/env node
-import { GeneratorConfig, SoiaConfig } from "./config.js";
-import { formatModule } from "./formatter.js";
-import { REAL_FILE_SYSTEM } from "./io.js";
-import { ModuleSet } from "./module_set.js";
-import { tokenizeModule } from "./tokenizer.js";
-import type { CodeGenerator, SoiaError } from "./types.js";
 import * as fs from "fs/promises";
 import { glob } from "glob";
 import { parseArgs } from "node:util";
@@ -12,6 +6,12 @@ import * as paths from "path";
 import Watcher from "watcher";
 import * as yaml from "yaml";
 import { fromZodError } from "zod-validation-error";
+import { GeneratorConfig, SoiaConfig } from "./config.js";
+import { formatModule } from "./formatter.js";
+import { REAL_FILE_SYSTEM } from "./io.js";
+import { ModuleSet } from "./module_set.js";
+import { tokenizeModule } from "./tokenizer.js";
+import type { CodeGenerator, SoiaError } from "./types.js";
 
 interface GeneratorBundle<Config = unknown> {
   generator: CodeGenerator<Config>;
@@ -78,7 +78,7 @@ class WatchModeMainLoop {
     private readonly watchModeOn: boolean,
   ) {}
 
-  async start() {
+  async start(): Promise<void> {
     await this.generate();
     const watcher = new Watcher(this.srcDir, {
       renameDetection: true,
@@ -104,7 +104,7 @@ class WatchModeMainLoop {
       globalThis.clearTimeout(this.timeoutId);
     }
     const delayMillis = 200;
-    const callback = () => {
+    const callback = (): void => {
       try {
         this.generate();
       } catch (e) {

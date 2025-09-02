@@ -1,7 +1,7 @@
-import { formatModule } from "./formatter.js";
-import { tokenizeModule } from "./tokenizer.js";
 import { expect } from "buckwheat";
 import { describe, it } from "mocha";
+import { formatModule } from "./formatter.js";
+import { tokenizeModule } from "./tokenizer.js";
 
 const UNFORMATTED_MODULE = `
 /* module */ import A from 'module.soia';  import * as foo from 'module.soia';
