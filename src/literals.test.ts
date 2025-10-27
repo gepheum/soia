@@ -29,10 +29,10 @@ describe("literals", () => {
     });
 
     it("works with bytes", () => {
-      expect(valueHasPrimitiveType("'09afAF'", "bytes")).toBe(true);
-      expect(valueHasPrimitiveType('"09afAF"', "bytes")).toBe(true);
-      expect(valueHasPrimitiveType("'09afAFa'", "bytes")).toBe(false);
-      expect(valueHasPrimitiveType("'09afAG'", "bytes")).toBe(false);
+      expect(valueHasPrimitiveType("'hex:09afAF'", "bytes")).toBe(true);
+      expect(valueHasPrimitiveType('"hex:09afAF"', "bytes")).toBe(true);
+      expect(valueHasPrimitiveType("'hex:09afAFa'", "bytes")).toBe(false);
+      expect(valueHasPrimitiveType("'hex:09afAG'", "bytes")).toBe(false);
     });
 
     it("works with timestamp", () => {
@@ -112,7 +112,7 @@ describe("literals", () => {
     });
 
     it("works with bytes", () => {
-      expect(literalValueToIdentity("'09afAF'", "bytes")).toBe("09AFAF");
+      expect(literalValueToIdentity("'hex:09afAF'", "bytes")).toBe("Ca+v");
     });
 
     it("works with timestamp", () => {
@@ -159,7 +159,7 @@ describe("literals", () => {
     });
 
     it("works with bytes", () => {
-      expect(literalValueToDenseJson("'09afAF'", "bytes")).toBe("09AFAF");
+      expect(literalValueToDenseJson("'hex:09afAF'", "bytes")).toBe("Ca+v");
     });
 
     it("works with timestamp", () => {

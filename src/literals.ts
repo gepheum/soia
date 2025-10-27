@@ -23,7 +23,7 @@ export function valueHasPrimitiveType(
     case "bytes":
       return (
         isStringLiteral(token) &&
-        /^([0-9A-Fa-f]{2})*$/.test(unquoteAndUnescape(token))
+        /^hex:([0-9A-Fa-f]{2})*$/.test(unquoteAndUnescape(token))
       );
     case "timestamp": {
       if (!isStringLiteral(token)) {
@@ -83,8 +83,11 @@ export function literalValueToDenseJson(
   switch (type) {
     case "bool":
       return token === "true" ? 1 : 0;
-    case "bytes":
-      return unquoteAndUnescape(token).toUpperCase();
+    case "bytes": {
+      const string = unquoteAndUnescape(token);
+      const buffer = Buffer.from(string.substring(4), "hex");
+      return buffer.toString("base64");
+    }
     case "timestamp": {
       const dateTime = unquoteAndUnescape(token);
       return new Date(dateTime).valueOf();
