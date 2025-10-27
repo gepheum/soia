@@ -49,6 +49,7 @@ describe("literals", () => {
       expect(valueHasPrimitiveType("2147483647", "int32")).toBe(true);
       expect(valueHasPrimitiveType("-2147483649", "int32")).toBe(false);
       expect(valueHasPrimitiveType("2147483648", "int32")).toBe(false);
+      expect(valueHasPrimitiveType("Infinity", "int32")).toBe(false);
       expect(valueHasPrimitiveType("3.14", "int32")).toBe(false);
     });
 
@@ -79,6 +80,9 @@ describe("literals", () => {
       expect(valueHasPrimitiveType("3.14", "float32")).toBe(true);
       expect(valueHasPrimitiveType("-3.14", "float32")).toBe(true);
       expect(valueHasPrimitiveType("'-3.14'", "float32")).toBe(false);
+      expect(valueHasPrimitiveType("'-Infinity'", "float32")).toBe(true);
+      expect(valueHasPrimitiveType("'Infinity'", "float32")).toBe(true);
+      expect(valueHasPrimitiveType("'NaN'", "float32")).toBe(true);
     });
 
     it("works with float64", () => {
@@ -87,6 +91,9 @@ describe("literals", () => {
       expect(valueHasPrimitiveType("3.14", "float64")).toBe(true);
       expect(valueHasPrimitiveType("-3.14", "float64")).toBe(true);
       expect(valueHasPrimitiveType("'-3.14'", "float64")).toBe(false);
+      expect(valueHasPrimitiveType("'-Infinity'", "float64")).toBe(true);
+      expect(valueHasPrimitiveType("'Infinity'", "float64")).toBe(true);
+      expect(valueHasPrimitiveType("'NaN'", "float64")).toBe(true);
     });
 
     it("works with string", () => {
@@ -100,8 +107,8 @@ describe("literals", () => {
 
   describe("#literalValueToIdentity()", () => {
     it("works with bool", () => {
-      expect(literalValueToIdentity("true", "bool")).toBe("true");
-      expect(literalValueToIdentity("false", "bool")).toBe("false");
+      expect(literalValueToIdentity("true", "bool")).toBe("1");
+      expect(literalValueToIdentity("false", "bool")).toBe("0");
     });
 
     it("works with bytes", () => {
@@ -147,8 +154,8 @@ describe("literals", () => {
 
   describe("#literalValueToDenseJson()", () => {
     it("works with bool", () => {
-      expect(literalValueToDenseJson("true", "bool")).toBe(true);
-      expect(literalValueToDenseJson("false", "bool")).toBe(false);
+      expect(literalValueToDenseJson("true", "bool")).toBe(1);
+      expect(literalValueToDenseJson("false", "bool")).toBe(0);
     });
 
     it("works with bytes", () => {
@@ -181,10 +188,20 @@ describe("literals", () => {
 
     it("works with float32", () => {
       expect(literalValueToDenseJson("3.140", "float32")).toBe(3.14);
+      expect(literalValueToDenseJson("'Infinity'", "float32")).toBe(
+        Number.POSITIVE_INFINITY,
+      );
     });
 
     it("works with float64", () => {
       expect(literalValueToDenseJson("3.140", "float64")).toBe(3.14);
+      expect(literalValueToDenseJson("'-Infinity'", "float64")).toBe(
+        Number.NEGATIVE_INFINITY,
+      );
+      expect(
+        literalValueToDenseJson("'NaN'", "float64") ===
+          literalValueToDenseJson("'NaN'", "float64"),
+      ).toBe(false);
     });
 
     it("works with string", () => {

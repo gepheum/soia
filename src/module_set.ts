@@ -568,7 +568,19 @@ export class ModuleSet {
         allGood = false;
         continue;
       }
+    }
+    let arrayLen = 0;
+    for (const field of expectedStruct.fields) {
       if (!field.type) {
+        allGood = false;
+        continue;
+      }
+      const fieldEntry = value.entries[field.name.text];
+      if (!fieldEntry) {
+        errors.push({
+          token: token,
+          message: `Missing entry: ${field.name.text}`,
+        });
         allGood = false;
         continue;
       }
@@ -578,17 +590,18 @@ export class ModuleSet {
         allGood = false;
         continue;
       }
-      if (
-        !valueJson ||
-        (Array.isArray(valueJson) && !valueJson.length) ||
-        (type.kind === "primitive" &&
-          (type.primitive === "int64" || type.primitive === "uint64") &&
-          valueJson === "0")
-      ) {
-        // The field has a default value.
-        continue;
-      }
       json[field.number] = valueJson;
+      const hasDefaultValue =
+        type.kind === "optional"
+          ? valueJson === null
+          : !valueJson ||
+            (Array.isArray(valueJson) && !valueJson.length) ||
+            (type.kind === "primitive" &&
+              (type.primitive === "int64" || type.primitive === "uint64") &&
+              valueJson === "0");
+      if (!hasDefaultValue) {
+        arrayLen = Math.max(arrayLen, field.number + 1);
+      }
     }
     if (!allGood) {
       return undefined;
@@ -600,7 +613,7 @@ export class ModuleSet {
         json[i] = "0";
       }
     }
-    return json;
+    return json.slice(0, arrayLen);
   }
 
   private enumValueToDenseJson(

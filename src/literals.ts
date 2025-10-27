@@ -47,8 +47,18 @@ export function valueHasPrimitiveType(
     case "uint64":
       return isIntLiteral(token, BigInt(0), BigInt("18446744073709551615"));
     case "float32":
-    case "float64":
-      return /^[-0-9]/.test(token);
+    case "float64": {
+      if (isStringLiteral(token)) {
+        const stringLiteral = unquoteAndUnescape(token);
+        return (
+          stringLiteral === "NaN" ||
+          stringLiteral === "Infinity" ||
+          stringLiteral === "-Infinity"
+        );
+      } else {
+        return /^[-0-9]/.test(token);
+      }
+    }
     case "string":
       return isStringLiteral(token);
   }
@@ -72,7 +82,7 @@ export function literalValueToDenseJson(
 ): DenseJson {
   switch (type) {
     case "bool":
-      return token === "true";
+      return token === "true" ? 1 : 0;
     case "bytes":
       return unquoteAndUnescape(token).toUpperCase();
     case "timestamp": {
@@ -82,7 +92,7 @@ export function literalValueToDenseJson(
     case "int32":
     case "float32":
     case "float64":
-      return Number(token);
+      return Number(isStringLiteral(token) ? unquoteAndUnescape(token) : token);
     case "int64":
     case "uint64":
       return String(BigInt(token));

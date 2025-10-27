@@ -1256,6 +1256,51 @@ describe("module set", () => {
         errors: [],
       });
     });
+  });
+
+  describe("constants", () => {
+    it("honors default values", () => {
+      const fakeFileReader = new FakeFileReader();
+      fakeFileReader.pathToCode.set(
+        "path/to/root/path/to/module",
+        `
+        struct Struct {
+          opt_a: int32?;
+          int: int32;
+          float: float32;
+          bool: bool;
+          ints: [int32];
+          opt_b: int32?;
+        }
+
+        const S: Struct = {
+          opt_a: 0,
+          int: 0,
+          float: 0.0,
+          bool: false,
+          ints: [],
+          opt_b: null,
+        };
+      `,
+      );
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
+      const actual = moduleSet.parseAndResolve("path/to/module");
+
+      expect(actual).toMatch({
+        result: {
+          nameToDeclaration: {
+            S: {
+              kind: "constant",
+              name: {
+                text: "S",
+              },
+              valueAsDenseJson: [0],
+            },
+          },
+        },
+        errors: [],
+      });
+    });
 
     it("with keyed array", () => {
       const fakeFileReader = new FakeFileReader();
@@ -1428,6 +1473,36 @@ describe("module set", () => {
               text: "'A'",
             },
             message: "Duplicate key",
+          },
+        ],
+      });
+    });
+
+    it("missing struct field", () => {
+      const fakeFileReader = new FakeFileReader();
+      fakeFileReader.pathToCode.set(
+        "path/to/root/path/to/module",
+        `
+        struct Point {
+          x: int32;
+          y: int32;
+        }
+
+        const POINT: Point = {
+          x: 10,
+        };
+      `,
+      );
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
+      const actual = moduleSet.parseAndResolve("path/to/module");
+
+      expect(actual).toMatch({
+        errors: [
+          {
+            token: {
+              text: "{",
+            },
+            message: "Missing entry: y",
           },
         ],
       });
