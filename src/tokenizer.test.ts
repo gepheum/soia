@@ -11,11 +11,15 @@ describe("tokenizer", () => {
       "// Single-line comment",
       "struct Point2d { /* Multi-line",
       "  comment */",
-      "  x: float32;",
-      "  y: float32;",
-      "  foos: [foo.Foo]?;",
-      "  bars: [Bar|key];",
+      "  x: float32 = 1;",
+      "  y: float32 = 2;",
+      "  foos: [foo.Foo]? = 4;",
+      "  bars: [Bar|key] = 8;",
+      "  removed 3, 5..7;",
       "}",
+      "",
+      "const MINUS_ONE: int32 = -1;",
+      "const MINUS_ONE_AND_A_HALF: float32 = -1.5;",
     ].join("\n");
 
     const actual = tokenizeModule(code, "path/to/module");
@@ -112,6 +116,12 @@ describe("tokenizer", () => {
           text: "float32",
         },
         {
+          text: "=",
+        },
+        {
+          text: "1",
+        },
+        {
           text: ";",
         },
         {
@@ -122,6 +132,12 @@ describe("tokenizer", () => {
         },
         {
           text: "float32",
+        },
+        {
+          text: "=",
+        },
+        {
+          text: "2",
         },
         {
           text: ";",
@@ -151,6 +167,12 @@ describe("tokenizer", () => {
           text: "?",
         },
         {
+          text: "=",
+        },
+        {
+          text: "4",
+        },
+        {
           text: ";",
         },
         {
@@ -175,10 +197,79 @@ describe("tokenizer", () => {
           text: "]",
         },
         {
+          text: "=",
+        },
+        {
+          text: "8",
+        },
+        {
+          text: ";",
+        },
+        {
+          text: "removed",
+        },
+        {
+          text: "3",
+        },
+        {
+          text: ",",
+        },
+        {
+          text: "5",
+        },
+        {
+          text: "..",
+        },
+        {
+          text: "7",
+        },
+        {
           text: ";",
         },
         {
           text: "}",
+        },
+        {
+          text: "const",
+        },
+        {
+          text: "MINUS_ONE",
+        },
+        {
+          text: ":",
+        },
+        {
+          text: "int32",
+        },
+        {
+          text: "=",
+        },
+        {
+          text: "-1",
+        },
+        {
+          text: ";",
+        },
+        {
+          text: "const",
+        },
+        {
+          text: "MINUS_ONE_AND_A_HALF",
+        },
+        {
+          text: ":",
+        },
+        {
+          text: "float32",
+        },
+        {
+          text: "=",
+        },
+        {
+          text: "-1.5",
+        },
+        {
+          text: ";",
         },
         {
           text: "",

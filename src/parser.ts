@@ -563,7 +563,7 @@ function parseRecordRef(
 }
 
 function parseInt(it: TokenIterator): number {
-  const match = it.expectThenMove([TOKEN_IS_INT]);
+  const match = it.expectThenMove([TOKEN_IS_POSITIVE_INT]);
   return match.case == 0 ? +match.token.text : -1;
 }
 
@@ -571,16 +571,22 @@ function parseInt(it: TokenIterator): number {
 // Assumes the current token is the token after "removed".
 function parseRemoved(it: TokenIterator, removedToken: Token): Removed | null {
   const numbers: number[] = [];
-  // The 3 states are:
-  //   · '?': expect a number or a semicolon
-  //   · ',': expect a comma or a semicolon
-  //   · '0': expect a single number or the lower bound of a range
-  let expect: "?" | "," | "0" = "?";
+  // The 5 states are:
+  //   ·  '?': expect a number or a semicolon
+  //   ·  ',': expect a comma or a semicolon
+  //   · '..': expect a comma, a semicolon or a '..'
+  //   ·  '0': expect a single number or the lower bound of a range
+  //   ·  '1': expect the upper bound of a range
+  let expect: "?" | "," | ".." | "0" | "1" = "?";
+  let lowerBound: number | undefined;
   loop: while (true) {
     const expected: Array<string | TokenPredicate | null> = [
-      /*0:*/ expect === "," ? "," : null,
-      /*1:*/ expect === "?" || expect === "0" ? TOKEN_IS_INT : null,
-      /*3:*/ expect === "?" || expect === "," ? ";" : null,
+      /*0:*/ expect === "," || expect === ".." ? "," : null,
+      /*1:*/ expect === "?" || expect === "0" || expect === "1"
+        ? TOKEN_IS_POSITIVE_INT
+        : null,
+      /*2:*/ expect === "?" || expect === "," || expect === ".." ? ";" : null,
+      /*3:*/ expect === ".." ? ".." : null,
     ];
     const match = it.expectThenMove(expected);
     switch (match.case) {
@@ -592,13 +598,33 @@ function parseRemoved(it: TokenIterator, removedToken: Token): Removed | null {
       case 1: {
         // A number.
         const number = +match.token.text;
-        expect = ",";
-        numbers.push(number);
+        if (lowerBound === undefined) {
+          expect = "..";
+          numbers.push(number);
+        } else {
+          expect = ",";
+          if (number <= lowerBound) {
+            it.errors.push({
+              token: removedToken,
+              message: "Upper bound must be greater than lower bound",
+            });
+          }
+          for (let n = lowerBound; n <= number; ++n) {
+            numbers.push(n);
+          }
+          lowerBound = undefined;
+        }
         break;
       }
       case 2: {
         // A semicolon.
         break loop;
+      }
+      case 3: {
+        // A '..'
+        expect = "1";
+        lowerBound = numbers.pop()!;
+        break;
       }
       case -1:
         return null;
@@ -898,7 +924,7 @@ class TokenIsIdentifier extends TokenPredicate {
 
 const TOKEN_IS_IDENTIFIER = new TokenIsIdentifier();
 
-class TokenIsInt extends TokenPredicate {
+class TokenIsPositiveInt extends TokenPredicate {
   override matches(token: string): boolean {
     return /^[0-9]+$/.test(token);
   }
@@ -908,11 +934,11 @@ class TokenIsInt extends TokenPredicate {
   }
 }
 
-const TOKEN_IS_INT = new TokenIsInt();
+const TOKEN_IS_POSITIVE_INT = new TokenIsPositiveInt();
 
 class TokenIsNumber extends TokenPredicate {
   override matches(token: string): boolean {
-    return /^[0-9]/.test(token);
+    return /^[0-9-]/.test(token);
   }
 
   override what(): string {

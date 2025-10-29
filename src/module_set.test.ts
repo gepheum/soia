@@ -748,6 +748,7 @@ describe("module set", () => {
           method Pa([Foo|a]): string;
           method Pb(string): [Foo|b];
           const FOO: [Foo|c] = [];
+          const PI: float32 = -3.14;
         `,
       );
 

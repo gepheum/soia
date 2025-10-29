@@ -14,16 +14,17 @@ export function tokenizeModule(
 
   // Multiline comment:            \/\*([^*]|\*[^\/])*(\*\/)?
   // Single-line comment:          \/\/[^\n\r]*
-  // Number:                       \b-?(0|[1-9][0-9]*)(\.[0-9]+)?\b
+  // Number:                       -?(0|[1-9][0-9]*)(\.[0-9]+)?\b
   // Word:                         \b\w+\b
   // Whitespaces:                  [ \n\r\t]+
-  // Symbol:                       [{}\[\]\(\)*.:=;|?\-,]
+  // Symbol:                       \.\.|[{}[\]()*.:=;|?,]
   // Double-quote string literal:  "(\\(\n|\r|\n\r|.)|[^\\\"\n\r])*"?
   // Single-quote string literal:  '(\\(\n|\r|\n\r|.)|[^\\\'\n\r])*'?
   //
   // To iterate on this regex, use https://regex101.com/.
   const re =
-    /(\/\*([^*]|\*[^/])*(\*\/)?)|(\/\/[^\n\r]*)|(\b-?(0|[1-9][0-9]*)(\.[0-9]+)?)\b|\b(\w+)\b|([ \n\r\t]+)|([{}[\]()*.:=;|?\-,])|("(\\(\n|\r|\n\r|.)|[^\\"\n\r])*"?)|('(\\(\n|\r|\n\r|.)|[^\\'\n\r])*'?)|($)/g;
+    /(\/\*([^*]|\*[^/])*(\*\/)?)|(\/\/[^\n\r]*)|(-?(0|[1-9][0-9]*)(\.[0-9]+)?\b)|\b(\w+)\b|([ \n\r\t]+)|(\.\.|[{}[\]()*.:=;|?,])|("(\\(\n|\r|\n\r|.)|[^\\"\n\r])*"?)|('(\\(\n|\r|\n\r|.)|[^\\'\n\r])*'?)|($)/g;
+  // 1    2             3        4              5  6              7                8       9            10                       11   13                             14   16                             17
 
   let group: RegExpExecArray | null;
   let expectedPosition = 0;
@@ -130,14 +131,11 @@ export function tokenizeModule(
 
 function validateWord(token: Token, errors: ErrorSink): boolean {
   if (/^[0-9]/.test(token.text)) {
-    if (!/^(0|[1-9][0-9]*)$/.test(token.text)) {
-      errors.push({
-        token: token,
-        message: "Invalid number",
-      });
-      return false;
-    }
-    return true;
+    errors.push({
+      token: token,
+      message: "Invalid number",
+    });
+    return false;
   }
 
   if (token.text.startsWith("_")) {

@@ -430,6 +430,8 @@ describe("module parser", () => {
       enum Enum {
         CONSTANT = 2;
         removed 10, 11;
+        removed 12..14;
+        removed 30..32, 50, 60..62;
         value_field: bool = 4;
       }`);
 
@@ -458,6 +460,7 @@ describe("module parser", () => {
                 number: 4,
               },
             },
+            removedNumbers: [10, 11, 12, 13, 14, 30, 31, 32, 50, 60, 61, 62],
           },
         },
       },
@@ -581,6 +584,42 @@ describe("module parser", () => {
             text: "removed",
           },
           message: "Duplicate field number 2",
+        },
+      ],
+    });
+  });
+
+  it("struct with duplicate number in removed range declaration", () => {
+    const actualModule = parse(`
+      struct A {
+        removed 0, 1, 2, 5, 2..4;
+      }`);
+
+    expect(actualModule).toMatch({
+      errors: [
+        {
+          token: {
+            text: "removed",
+          },
+          message: "Duplicate field number 2",
+        },
+      ],
+    });
+  });
+
+  it("struct with invalid range in removed declaration", () => {
+    const actualModule = parse(`
+      struct A {
+        removed 0..0;
+      }`);
+
+    expect(actualModule).toMatch({
+      errors: [
+        {
+          token: {
+            text: "removed",
+          },
+          message: "Upper bound must be greater than lower bound",
         },
       ],
     });
@@ -961,6 +1000,7 @@ describe("module parser", () => {
           {bar: false,},
           "hey",
           3.14,
+          -3.14,
         ],
         empty_array: [],
         empty_object: {},
@@ -1036,6 +1076,12 @@ describe("module parser", () => {
                         kind: "literal",
                         token: {
                           text: "3.14",
+                        },
+                      },
+                      {
+                        kind: "literal",
+                        token: {
+                          text: "-3.14",
                         },
                       },
                     ],
