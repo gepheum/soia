@@ -52,7 +52,10 @@ method M(Request):Response;
     'n\\"': null, // null
 // c doc
     'c': []  // c
-  }
+  },
+  {||}, {|  
+    "a": true,
+  |}
 ];
 
 struct S {
@@ -123,6 +126,10 @@ const CONST: [Type] = [
     // c doc
     "c": [],  // c
   },
+  {||},
+  {|
+    "a": true,
+  |},
 ];
 
 struct S {

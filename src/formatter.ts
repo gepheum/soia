@@ -83,6 +83,19 @@ export function formatModule(tokens: readonly Token[]): string {
         }
         break;
       }
+      case "{|": {
+        if (iterator.hasNext() && iterator.peek().text === "|}") {
+          sink.write(inValue ? "{||}" : " {||}");
+          iterator.next();
+          if (!inValue) {
+            breakLine();
+          }
+        } else {
+          sink.write(inValue ? "{|" : " {|");
+          breakLineAndIndent();
+        }
+        break;
+      }
       case "}": {
         if (inValue) {
           sink.maybeWriteTrailingComma();
@@ -90,6 +103,18 @@ export function formatModule(tokens: readonly Token[]): string {
         }
         unindent();
         sink.write("}");
+        if (!inValue) {
+          breakLine();
+        }
+        break;
+      }
+      case "|}": {
+        if (inValue) {
+          sink.maybeWriteTrailingComma();
+          breakLine();
+        }
+        unindent();
+        sink.write("|}");
         if (!inValue) {
           breakLine();
         }
