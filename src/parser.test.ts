@@ -1099,6 +1099,104 @@ describe("module parser", () => {
                   },
                 },
               },
+              partial: false,
+            },
+          },
+        },
+        constants: [
+          {
+            kind: "constant",
+            name: {
+              text: "FOO",
+            },
+          },
+        ],
+      },
+      errors: [],
+    });
+  });
+
+  it("partial constant", () => {
+    const actualModule = parse(`
+      const FOO: [Foo] = {|
+        foo: true,
+      |};`);
+
+    expect(actualModule).toMatch({
+      result: {
+        kind: "module",
+        path: "path/to/module",
+        nameToDeclaration: {
+          FOO: {
+            kind: "constant",
+            name: {
+              text: "FOO",
+            },
+            unresolvedType: {
+              kind: "array",
+              item: {
+                kind: "record",
+              },
+            },
+            value: {
+              kind: "object",
+              token: {
+                text: "{|",
+              },
+              entries: {
+                foo: {
+                  value: {
+                    kind: "literal",
+                    token: {
+                      text: "true",
+                    },
+                  },
+                },
+              },
+              partial: true,
+            },
+          },
+        },
+        constants: [
+          {
+            kind: "constant",
+            name: {
+              text: "FOO",
+            },
+          },
+        ],
+      },
+      errors: [],
+    });
+  });
+
+  it("partial empty constant", () => {
+    const actualModule = parse(`
+      const FOO: [Foo] = {||};`);
+
+    expect(actualModule).toMatch({
+      result: {
+        kind: "module",
+        path: "path/to/module",
+        nameToDeclaration: {
+          FOO: {
+            kind: "constant",
+            name: {
+              text: "FOO",
+            },
+            unresolvedType: {
+              kind: "array",
+              item: {
+                kind: "record",
+              },
+            },
+            value: {
+              kind: "object",
+              token: {
+                text: "{|",
+              },
+              entries: {},
+              partial: true,
             },
           },
         },

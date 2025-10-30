@@ -577,11 +577,14 @@ export class ModuleSet {
       }
       const fieldEntry = value.entries[field.name.text];
       if (!fieldEntry) {
-        errors.push({
-          token: token,
-          message: `Missing entry: ${field.name.text}`,
-        });
-        allGood = false;
+        // Unless the object is declared partial, all fields are required.
+        if (!value.partial) {
+          errors.push({
+            token: token,
+            message: `Missing entry: ${field.name.text}`,
+          });
+          allGood = false;
+        }
         continue;
       }
       const { type } = field;
@@ -626,6 +629,10 @@ export class ModuleSet {
       // The value is a string.
       // It must match the name of one of the constants defined in the enum.
       const fieldName = unquoteAndUnescape(token.text);
+      if (fieldName === "UNKNOWN") {
+        // Present on every enum.
+        return 0;
+      }
       const field = expectedEnum.nameToDeclaration[fieldName];
       if (!field || field.kind !== "field") {
         errors.push({

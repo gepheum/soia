@@ -790,17 +790,20 @@ function parseConstant(it: TokenIterator): MutableConstant | null {
 function parseValue(it: TokenIterator): MutableValue | null {
   const expected = [
     /*0:*/ "{",
-    /*1:*/ "[",
-    /*2:*/ "false",
-    /*3:*/ "true",
-    /*4:*/ "null",
-    /*5:*/ TOKEN_IS_NUMBER,
-    /*6:*/ TOKEN_IS_STRING_LITERAL,
+    /*1:*/ "{|",
+    /*2:*/ "[",
+    /*3:*/ "false",
+    /*4:*/ "true",
+    /*5:*/ "null",
+    /*6:*/ TOKEN_IS_NUMBER,
+    /*7:*/ TOKEN_IS_STRING_LITERAL,
   ];
   const match = it.expectThenMove(expected);
   switch (match.case) {
-    case 0: {
-      const entries = parseObjectValue(it);
+    case 0:
+    case 1: {
+      const partial = match.case === 1;
+      const entries = parseObjectValue(it, partial);
       if (entries === null) {
         return null;
       }
@@ -808,9 +811,10 @@ function parseValue(it: TokenIterator): MutableValue | null {
         kind: "object",
         token: match.token,
         entries: entries,
+        partial: partial,
       };
     }
-    case 1: {
+    case 2: {
       const items = parseArrayValue(it);
       if (items === null) {
         return null;
@@ -821,11 +825,11 @@ function parseValue(it: TokenIterator): MutableValue | null {
         items: items,
       };
     }
-    case 2:
     case 3:
     case 4:
     case 5:
     case 6:
+    case 7:
       return {
         kind: "literal",
         token: match.token,
@@ -837,13 +841,15 @@ function parseValue(it: TokenIterator): MutableValue | null {
 
 function parseObjectValue(
   it: TokenIterator,
+  partial: boolean,
 ): { [f: string]: MutableObjectEntry } | null {
-  if (it.peek() === "}") {
-    it.next();
-    return {};
-  }
+  const closingToken = partial ? "|}" : "}";
   const entries: { [f: string]: MutableObjectEntry } = {};
   while (true) {
+    if (it.peek() === closingToken) {
+      it.next();
+      return entries;
+    }
     const fieldNameMatch = it.expectThenMove([TOKEN_IS_IDENTIFIER]);
     if (fieldNameMatch.case < 0) {
       return null;
@@ -867,15 +873,11 @@ function parseObjectValue(
       name: fieldNameToken,
       value: value,
     };
-    const endMatch = it.expectThenMove([",", "}"]);
+    const endMatch = it.expectThenMove([",", closingToken]);
     if (endMatch.case < 0) {
       return null;
     }
-    if (endMatch.token.text === "}") {
-      return entries;
-    }
-    if (it.peek() === "}") {
-      it.next();
+    if (endMatch.token.text === closingToken) {
       return entries;
     }
   }

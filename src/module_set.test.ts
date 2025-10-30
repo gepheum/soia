@@ -1257,9 +1257,7 @@ describe("module set", () => {
         errors: [],
       });
     });
-  });
 
-  describe("constants", () => {
     it("honors default values", () => {
       const fakeFileReader = new FakeFileReader();
       fakeFileReader.pathToCode.set(
@@ -1331,6 +1329,9 @@ describe("module set", () => {
             },
             {
               e: "B",
+            },
+            {
+              e: "UNKNOWN",
             },
             {
               e: {
@@ -1506,6 +1507,39 @@ describe("module set", () => {
             message: "Missing entry: y",
           },
         ],
+      });
+    });
+
+    it("missing struct field okay if partial", () => {
+      const fakeFileReader = new FakeFileReader();
+      fakeFileReader.pathToCode.set(
+        "path/to/root/path/to/module",
+        `
+        struct Point {
+          x: int32;
+          y: int32;
+        }
+
+        const POINT: Point = {|
+          x: 10,
+        |};
+      `,
+      );
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
+      const actual = moduleSet.parseAndResolve("path/to/module");
+
+      expect(actual).toMatch({
+        result: {
+          constants: [
+            {
+              name: {
+                text: "POINT",
+              },
+              valueAsDenseJson: [10],
+            },
+          ],
+        },
+        errors: [],
       });
     });
   });

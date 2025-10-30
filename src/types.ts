@@ -397,6 +397,7 @@ export interface MutableObjectValue<Mutable extends boolean = true> {
   readonly kind: "object";
   readonly token: Token;
   readonly entries: Readonly<{ [f: string]: ObjectEntry<Mutable> }>;
+  partial: boolean;
   type?: RecordKey;
 }
 

@@ -20,6 +20,7 @@ describe("tokenizer", () => {
       "",
       "const MINUS_ONE: int32 = -1;",
       "const MINUS_ONE_AND_A_HALF: float32 = -1.5;",
+      "const STRUCT: Point2d = {| |};",
     ].join("\n");
 
     const actual = tokenizeModule(code, "path/to/module");
@@ -267,6 +268,30 @@ describe("tokenizer", () => {
         },
         {
           text: "-1.5",
+        },
+        {
+          text: ";",
+        },
+        {
+          text: "const",
+        },
+        {
+          text: "STRUCT",
+        },
+        {
+          text: ":",
+        },
+        {
+          text: "Point2d",
+        },
+        {
+          text: "=",
+        },
+        {
+          text: "{|",
+        },
+        {
+          text: "|}",
         },
         {
           text: ";",
