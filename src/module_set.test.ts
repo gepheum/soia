@@ -1324,7 +1324,7 @@ describe("module set", () => {
               e: "B",
             },
             {
-              e: "UNKNOWN",
+              e: "?",
             },
             {
               e: {
