@@ -1099,6 +1099,7 @@ describe("module set", () => {
 
         struct Point {
           x: float32;
+          removed;
           y: float32;
         }
 
@@ -1118,13 +1119,12 @@ describe("module set", () => {
               x: 10.0,
               y: 10.0,
             },
-            {
-              x: 20.0,
-              y: 10.0,
-            },
+            {|
+              y: 20.0,
+            |},
             {
               x: 10.0,
-              y: 20.0,
+              y: 0.0,
             },
           ],
         };
@@ -1144,7 +1144,7 @@ describe("module set", () => {
               },
               type: {
                 kind: "record",
-                key: "path/to/module:188",
+                key: "path/to/module:207",
                 recordType: "struct",
                 refToken: {
                   text: "Shape",
@@ -1219,16 +1219,9 @@ describe("module set", () => {
                     },
                   },
                 },
-                type: "path/to/module:188",
+                type: "path/to/module:207",
               },
-              valueAsDenseJson: [
-                [255],
-                [
-                  [10, 10],
-                  [20, 10],
-                  [10, 20],
-                ],
-              ],
+              valueAsDenseJson: [[255], [[10, 0, 10], [0, 0, 20], [10]]],
             },
             NULL_SHAPE: {
               kind: "constant",

@@ -30,10 +30,13 @@ export function valueHasPrimitiveType(
         return false;
       }
       const dateTime = unquoteAndUnescape(token);
+      const timestamp = Date.parse(dateTime).valueOf();
       return (
-        !Number.isNaN(new Date(dateTime).valueOf()) &&
         // A timezone is required.
-        /(Z|[+-]\d\d:\d\d)$/.test(dateTime)
+        /(Z|[+-]\d\d:\d\d)$/.test(dateTime) &&
+        -8640000000000000 <= timestamp &&
+        timestamp <= 8640000000000000 &&
+        timestamp === Math.round(timestamp)
       );
     }
     case "int32":
@@ -90,7 +93,7 @@ export function literalValueToDenseJson(
     }
     case "timestamp": {
       const dateTime = unquoteAndUnescape(token);
-      return new Date(dateTime).valueOf();
+      return Math.round(new Date(dateTime).valueOf());
     }
     case "int32":
     case "float32":

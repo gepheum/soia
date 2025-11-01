@@ -38,10 +38,18 @@ describe("literals", () => {
     it("works with timestamp", () => {
       expect(valueHasPrimitiveType("'2023-12-25Z'", "timestamp")).toBe(true);
       expect(
-        valueHasPrimitiveType('"2023-12-25T12:00+08:30"', "timestamp"),
+        valueHasPrimitiveType('"2023-12-25T12:00:00.000+08:30"', "timestamp"),
       ).toBe(true);
+      // No timezone
       expect(valueHasPrimitiveType('"2023-12-25"', "timestamp")).toBe(false);
       expect(valueHasPrimitiveType('"now"', "timestamp")).toBe(false);
+      // Out of bounds
+      expect(valueHasPrimitiveType('"-10000-12-25T12:00Z"', "timestamp")).toBe(
+        false,
+      );
+      expect(valueHasPrimitiveType('"10000-12-25T12:00Z"', "timestamp")).toBe(
+        false,
+      );
     });
 
     it("works with int32", () => {
