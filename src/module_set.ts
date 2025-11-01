@@ -556,7 +556,9 @@ export class ModuleSet {
       });
       return undefined;
     }
-    const json: DenseJson[] = [];
+    const json: DenseJson[] = Array<DenseJson>(
+      expectedStruct.numSlotsInclRemovedNumbers,
+    ).fill(0);
     let allGood = true;
     for (const [fieldName, fieldEntry] of Object.entries(value.entries)) {
       const field = expectedStruct.nameToDeclaration[fieldName];
@@ -610,12 +612,6 @@ export class ModuleSet {
       return undefined;
     }
     value.type = expectedStruct.key;
-    // Fill missing slots in the JSON array with zeros.
-    for (let i = 0; i < json.length; ++i) {
-      if (json[i] === undefined) {
-        json[i] = 0;
-      }
-    }
     return json.slice(0, arrayLen);
   }
 
