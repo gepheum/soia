@@ -573,24 +573,26 @@ export class ModuleSet {
     }
     let arrayLen = 0;
     for (const field of expectedStruct.fields) {
-      if (!field.type) {
+      const { type } = field;
+      if (!type) {
         allGood = false;
         continue;
       }
       const fieldEntry = value.entries[field.name.text];
-      if (!fieldEntry) {
+      let valueJson: DenseJson | undefined;
+      if (fieldEntry) {
+        valueJson = this.valueToDenseJson(fieldEntry.value, type, errors);
+      } else {
         // Unless the object is declared partial, all fields are required.
-        if (!value.partial) {
+        if (value.partial) {
+          valueJson = this.getDefaultJson(type);
+        } else {
           errors.push({
             token: token,
             message: `Missing entry: ${field.name.text}`,
           });
-          allGood = false;
         }
-        continue;
       }
-      const { type } = field;
-      const valueJson = this.valueToDenseJson(fieldEntry.value, type, errors);
       if (valueJson === undefined) {
         allGood = false;
         continue;
@@ -724,6 +726,43 @@ export class ModuleSet {
         expected: "string or object",
       });
       return undefined;
+    }
+  }
+
+  private getDefaultJson(type: ResolvedType): DenseJson {
+    switch (type.kind) {
+      case "primitive": {
+        switch (type.primitive) {
+          case "bool":
+          case "int32":
+          case "int64":
+          case "uint64":
+          case "float32":
+          case "float64":
+          case "timestamp":
+            return 0;
+          case "string":
+          case "bytes":
+            return "";
+          default: {
+            const _: never = type.primitive;
+            throw new TypeError(_);
+          }
+        }
+      }
+      case "array":
+        return [];
+      case "optional":
+        return null;
+      case "record": {
+        const record = this.recordMap.get(type.key)!;
+        switch (record.record.recordType) {
+          case "struct":
+            return [];
+          case "enum":
+            return 0;
+        }
+      }
     }
   }
 
