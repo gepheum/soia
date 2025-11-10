@@ -196,20 +196,16 @@ describe("literals", () => {
 
     it("works with float32", () => {
       expect(literalValueToDenseJson("3.140", "float32")).toBe(3.14);
-      expect(literalValueToDenseJson("'Infinity'", "float32")).toBe(
-        Number.POSITIVE_INFINITY,
-      );
+      expect(literalValueToDenseJson("'Infinity'", "float32")).toBe("Infinity");
+      expect(literalValueToDenseJson("'NaN'", "float32")).toBe("NaN");
     });
 
     it("works with float64", () => {
       expect(literalValueToDenseJson("3.140", "float64")).toBe(3.14);
       expect(literalValueToDenseJson("'-Infinity'", "float64")).toBe(
-        Number.NEGATIVE_INFINITY,
+        "-Infinity",
       );
-      expect(
-        literalValueToDenseJson("'NaN'", "float64") ===
-          literalValueToDenseJson("'NaN'", "float64"),
-      ).toBe(false);
+      expect(literalValueToDenseJson("'NaN'", "float64")).toBe("NaN");
     });
 
     it("works with string", () => {

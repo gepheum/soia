@@ -97,8 +97,9 @@ export function literalValueToDenseJson(
     }
     case "int32":
     case "float32":
-    case "float64":
-      return Number(isStringLiteral(token) ? unquoteAndUnescape(token) : token);
+    case "float64": {
+      return isStringLiteral(token) ? unquoteAndUnescape(token) : Number(token);
+    }
     case "int64":
     case "uint64":
       return String(BigInt(token));
