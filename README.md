@@ -120,7 +120,7 @@ Enums in Soia are similar to enums in Rust. An enum value is one of several poss
 // Indicates whether an operation succeeded or failed.
 enum OperationStatus {
   SUCCESS;  // a constant field
-  error: string;  // a value field
+  error: string;  // a wrapper field
 }
 ```
 

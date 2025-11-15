@@ -642,7 +642,7 @@ export class ModuleSet {
       if (field.type) {
         errors.push({
           token: token,
-          message: "Refers to a value field",
+          message: "Refers to a wrapper field",
         });
         return undefined;
       }
@@ -653,9 +653,9 @@ export class ModuleSet {
       return field.number;
     } else if (value.kind === "object") {
       // The value is an object. It must have exactly two entries:
-      //   · 'kind' must match the name of one of the value fields defined in
+      //   · 'kind' must match the name of one of the wrapper fields defined in
       //     the enum
-      //   · 'value' must match the type of the value field
+      //   · 'value' must match the type of the wrapper field
       const entries = { ...value.entries };
       const kindEntry = entries.kind;
       if (!kindEntry) {
