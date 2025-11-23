@@ -42,11 +42,14 @@ point = shapes.Point.SERIALIZER.from_json(json)
 assert(point == shapes.Point(x=3, y=4, label="P"))
 ```
 
-As of March 2025, soia has official plugins for:
+As of November 2025, soia has official plugins for:
 
 *   JavaScript/TypeScript: [plugin](https://github.com/gepheum/soia-typescript-gen), [example](https://github.com/gepheum/soia-typescript-example)
 *   Python: [plugin](https://github.com/gepheum/soia-python-gen), [example](https://github.com/gepheum/soia-python-example)
 *   C++: [plugin](https://github.com/gepheum/soia-cc-gen), [example](https://github.com/gepheum/soia-cc-example)
+*   Java: [plugin](https://github.com/gepheum/soia-java-gen), [example](https://github.com/gepheum/soia-java-example)
+*   Kotlin: [plugin](https://github.com/gepheum/soia-kotlin-gen), [example](https://github.com/gepheum/soia-kotlin-example)
+*   Dart: [plugin](https://github.com/gepheum/soia-dart-gen), [example](https://github.com/gepheum/soia-dart-example)
 
 Other official and unofficial plugins will come.
 
