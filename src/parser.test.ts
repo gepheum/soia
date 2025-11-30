@@ -166,6 +166,35 @@ describe("module parser", () => {
     });
   });
 
+  it("record with stable id", () => {
+    const actualModule = parse(`
+    struct Foo(2147483647) {}
+    struct Bar(-2147483648) {}
+    enum Zoo(0) {}`);
+
+    expect(actualModule).toMatch({
+      result: {
+        kind: "module",
+        path: "path/to/module",
+        nameToDeclaration: {
+          Foo: {
+            kind: "record",
+            stableId: 2147483647,
+          },
+          Bar: {
+            kind: "record",
+            stableId: -2147483648,
+          },
+          Zoo: {
+            kind: "record",
+            stableId: 0,
+          },
+        },
+      },
+      errors: [],
+    });
+  });
+
   it("nested struct", () => {
     const actualModule = parse(`
     struct Foo {
@@ -658,6 +687,22 @@ describe("module parser", () => {
             text: "A",
           },
           message: "Missing field number 1",
+        },
+      ],
+    });
+  });
+
+  it("struct with stable id out of bounds", () => {
+    const actualModule = parse(`
+      struct A(2147483648) {}`);
+
+    expect(actualModule).toMatch({
+      errors: [
+        {
+          token: {
+            text: "2147483648",
+          },
+          message: "Stable id must be a 32-bit signed integer",
         },
       ],
     });
@@ -1365,6 +1410,44 @@ describe("module parser", () => {
         errors: [
           {
             expected: 'one of: "struct", "enum", "import", "method", "const"',
+          },
+        ],
+      });
+    });
+  });
+
+  describe("grammar errors", () => {
+    it("expected: record name", () => {
+      const actualModule = parse(`struct {}`);
+
+      expect(actualModule).toMatch({
+        errors: [
+          {
+            token: {
+              text: "{",
+              line: {
+                lineNumber: 0,
+              },
+            },
+            expected: "identifier",
+          },
+        ],
+      });
+    });
+
+    it("expected: positive integer", () => {
+      const actualModule = parse(`struct A { n: int32 = bool; }`);
+
+      expect(actualModule).toMatch({
+        errors: [
+          {
+            token: {
+              text: "bool",
+              line: {
+                lineNumber: 0,
+              },
+            },
+            expected: "positive integer",
           },
         ],
       });

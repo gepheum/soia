@@ -187,6 +187,7 @@ class RecordBuilder {
   constructor(
     private readonly recordName: Token,
     private readonly recordType: "struct" | "enum",
+    private readonly stableId: number | null,
     private readonly errors: ErrorSink,
   ) {}
 
@@ -329,6 +330,7 @@ class RecordBuilder {
       nestedRecords: nestedRecords,
       numbering: this.numbering,
       removedNumbers: this.removedNumbers.sort(),
+      stableId: this.stableId,
       numSlots: numSlots,
       numSlotsInclRemovedNumbers: numSlotsInclRemovedNumbers,
     };
@@ -351,12 +353,41 @@ function parseRecord(
     return null;
   }
   casing.validate(nameMatch.token, "UpperCamel", it.errors);
+  let stableId: number | null = null;
+  if (it.peek() === "(") {
+    it.next();
+    const stableIdMatch = it.expectThenMove([TOKEN_IS_INT]);
+    if (stableIdMatch.case < 0) {
+      return null;
+    }
+    const { token } = stableIdMatch;
+    const stableIdAsBigInt = BigInt(token.text);
+    if (
+      BigInt(-(2 ** 31)) <= stableIdAsBigInt &&
+      stableIdAsBigInt < BigInt(2 ** 31)
+    ) {
+      stableId = +token.text;
+    } else {
+      it.errors.push({
+        token: stableIdMatch.token,
+        message: `Stable id must be a 32-bit signed integer`,
+      });
+    }
+    if (it.expectThenMove([")"]).case < 0) {
+      return null;
+    }
+  }
   if (it.expectThenMove(["{"]).case < 0) {
     return null;
   }
   const declarations = parseDeclarations(it, recordType);
   it.expectThenMove(["}"]);
-  const builder = new RecordBuilder(nameMatch.token, recordType, it.errors);
+  const builder = new RecordBuilder(
+    nameMatch.token,
+    recordType,
+    stableId,
+    it.errors,
+  );
   for (const declaration of declarations) {
     builder.addDeclaration(declaration);
   }
@@ -926,13 +957,25 @@ class TokenIsIdentifier extends TokenPredicate {
 
 const TOKEN_IS_IDENTIFIER = new TokenIsIdentifier();
 
+class TokenIsInt extends TokenPredicate {
+  override matches(token: string): boolean {
+    return /^-?[0-9]+$/.test(token);
+  }
+
+  override what(): string {
+    return "integer";
+  }
+}
+
+const TOKEN_IS_INT = new TokenIsInt();
+
 class TokenIsPositiveInt extends TokenPredicate {
   override matches(token: string): boolean {
     return /^[0-9]+$/.test(token);
   }
 
   override what(): string {
-    return "number";
+    return "positive integer";
   }
 }
 

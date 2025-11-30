@@ -23,11 +23,11 @@ describe("module set", () => {
           struct Foo {}
         }
 
-        struct Bar {
+        struct Bar(100) {
           foo: Outer.Foo;
           foo2: .Outer.Foo;
 
-          struct Inner {}
+          struct Inner(101) {}
           inner: Inner;
           zoo: other_module.Outer.Zoo;
         }
@@ -151,7 +151,7 @@ describe("module set", () => {
         records: [
           { record: { name: { text: "Foo" } } },
           { record: { name: { text: "Outer" } } },
-          { record: { name: { text: "Inner" } } },
+          { record: { name: { text: "Inner" }, stableId: 101 } },
           { record: { name: { text: "Bar" } } },
         ],
       },
@@ -1083,6 +1083,44 @@ describe("module set", () => {
         },
       ],
     });
+  });
+
+  it("all stable ids must be distinct", () => {
+    const fakeFileReader = new FakeFileReader();
+    fakeFileReader.pathToCode.set(
+      "path/to/root/path/to/module",
+      `
+        struct Foo(100) {}
+      `,
+    );
+    fakeFileReader.pathToCode.set(
+      "path/to/root/path/to/other_module",
+      `
+        struct Bar(100) {}
+      `,
+    );
+
+    const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
+    {
+      const actual = moduleSet.parseAndResolve("path/to/module");
+      expect(actual).toMatch({
+        errors: [],
+      });
+    }
+    {
+      const actual = moduleSet.parseAndResolve("path/to/other_module");
+      expect(actual).toMatch({
+        errors: [
+          {
+            token: {
+              text: "Bar",
+            },
+            message:
+              "Duplicate stable id (id: 100, other: struct Foo in path/to/module)",
+          },
+        ],
+      });
+    }
   });
 
   describe("constants", () => {

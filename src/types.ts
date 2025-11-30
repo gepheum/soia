@@ -313,6 +313,7 @@ export interface Record<Mutable extends boolean = boolean> {
   readonly nestedRecords: ReadonlyArray<Record<Mutable>>;
   readonly numbering: Numbering;
   readonly removedNumbers: readonly number[];
+  readonly stableId: number | null;
   /**
    * If the record is a struct, 1 + the maximum field number.
    * Zero if the record is an enum.

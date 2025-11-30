@@ -203,7 +203,25 @@ export class ModuleSet {
 
     // Loop 1: merge the module records map into the cross-module record map.
     for (const record of module.records) {
-      this.mutableRecordMap.set(record.record.key, record);
+      const { key } = record.record;
+      this.mutableRecordMap.set(key, record);
+      const { stableId } = record.record;
+      if (stableId != null) {
+        const existing = this.stableIdToRecord.get(stableId);
+        if (existing === undefined) {
+          this.stableIdToRecord.set(stableId, key);
+        } else {
+          const otherRecord = this.recordMap.get(existing)!;
+          const otherRecordName = otherRecord.record.name.text;
+          const otherRecordType = otherRecord.record.recordType;
+          const otherModulePath = otherRecord.modulePath;
+          const otherInfo = `${otherRecordType} ${otherRecordName} in ${otherModulePath}`;
+          errors.push({
+            token: record.record.name,
+            message: `Duplicate stable id (id: ${stableId}, other: ${otherInfo})`,
+          });
+        }
+      }
     }
 
     // Loop 2: resolve every field type of every record in the module.
@@ -766,9 +784,10 @@ export class ModuleSet {
     }
   }
 
-  private modules = new Map<string, Result<Module | null>>();
+  private readonly modules = new Map<string, Result<Module | null>>();
   private readonly mutableRecordMap = new Map<RecordKey, RecordLocation>();
   private readonly mutableResolvedModules: MutableModule[] = [];
+  private readonly stableIdToRecord = new Map<number, RecordKey>();
   private readonly mutableErrors: SoiaError[] = [];
 
   get recordMap(): ReadonlyMap<RecordKey, RecordLocation> {
