@@ -32,6 +32,7 @@ import type {
 export function parseModule(
   tokens: readonly Token[],
   modulePath: string,
+  sourceCode: string,
 ): Result<MutableModule> {
   const errors: SoiaError[] = [];
   const it = new TokenIterator(tokens, errors);
@@ -69,6 +70,7 @@ export function parseModule(
     result: {
       kind: "module",
       path: modulePath,
+      sourceCode: sourceCode,
       nameToDeclaration: nameToDeclaration,
       declarations: declarations,
       // Populated right below.
@@ -330,7 +332,7 @@ class RecordBuilder {
       nestedRecords: nestedRecords,
       numbering: this.numbering,
       removedNumbers: this.removedNumbers.sort(),
-      stableId: this.stableId,
+      recordNumber: this.stableId,
       numSlots: numSlots,
       numSlotsInclRemovedNumbers: numSlotsInclRemovedNumbers,
     };
@@ -356,22 +358,9 @@ function parseRecord(
   let stableId: number | null = null;
   if (it.peek() === "(") {
     it.next();
-    const stableIdMatch = it.expectThenMove([TOKEN_IS_INT]);
-    if (stableIdMatch.case < 0) {
+    stableId = parseUint32(it);
+    if (stableId < 0) {
       return null;
-    }
-    const { token } = stableIdMatch;
-    const stableIdAsBigInt = BigInt(token.text);
-    if (
-      BigInt(-(2 ** 31)) <= stableIdAsBigInt &&
-      stableIdAsBigInt < BigInt(2 ** 31)
-    ) {
-      stableId = +token.text;
-    } else {
-      it.errors.push({
-        token: stableIdMatch.token,
-        message: `Stable id must be a 32-bit signed integer`,
-      });
     }
     if (it.expectThenMove([")"]).case < 0) {
       return null;
@@ -422,7 +411,7 @@ function parseField(
         break;
       }
       case 1: {
-        number = parseInt(it);
+        number = parseUint32(it);
         if (number < 0) {
           return null;
         }
@@ -593,9 +582,22 @@ function parseRecordRef(
   return { kind: "record", nameParts: nameParts, absolute: absolute };
 }
 
-function parseInt(it: TokenIterator): number {
+function parseUint32(it: TokenIterator): number {
   const match = it.expectThenMove([TOKEN_IS_POSITIVE_INT]);
-  return match.case == 0 ? +match.token.text : -1;
+  if (match.case < 0) {
+    return -1;
+  }
+  const { text } = match.token;
+  const valueAsBigInt = BigInt(text);
+  if (valueAsBigInt < BigInt(2 ** 32)) {
+    return +text;
+  } else {
+    it.errors.push({
+      token: match.token,
+      message: "Value out of uint32 range",
+    });
+    return -1;
+  }
 }
 
 // Parses the "removed" declaration.
@@ -762,16 +764,18 @@ function parseMethod(it: TokenIterator): MutableMethod | null {
     return null;
   }
 
-  let number: number | undefined;
-  if (it.expectThenMove(["=", ";"]).case === 0) {
-    number = parseInt(it);
+  const explicitNumber = it.expectThenMove(["=", ";"]).case === 0;
+  let number: number;
+  if (explicitNumber) {
+    number = parseUint32(it);
     if (number < 0) {
       return null;
     }
     it.expectThenMove([";"]);
-  }
-  if (number === undefined) {
-    number = simpleHash(nameMatch.token.text);
+  } else {
+    const methodName = nameMatch.token.text;
+    const { modulePath } = nameMatch.token.line;
+    number = simpleHash(`${modulePath}:${methodName}`);
   }
 
   return {
@@ -784,6 +788,7 @@ function parseMethod(it: TokenIterator): MutableMethod | null {
     // Will be populated at a later stage.
     responseType: undefined,
     number: number,
+    explicitNumber: explicitNumber,
   };
 }
 
@@ -956,18 +961,6 @@ class TokenIsIdentifier extends TokenPredicate {
 }
 
 const TOKEN_IS_IDENTIFIER = new TokenIsIdentifier();
-
-class TokenIsInt extends TokenPredicate {
-  override matches(token: string): boolean {
-    return /^-?[0-9]+$/.test(token);
-  }
-
-  override what(): string {
-    return "integer";
-  }
-}
-
-const TOKEN_IS_INT = new TokenIsInt();
 
 class TokenIsPositiveInt extends TokenPredicate {
   override matches(token: string): boolean {

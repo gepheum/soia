@@ -15,6 +15,7 @@ import type {
   FieldPath,
   Import,
   ImportAlias,
+  Method,
   Module,
   MutableArrayType,
   MutableModule,
@@ -205,20 +206,18 @@ export class ModuleSet {
     for (const record of module.records) {
       const { key } = record.record;
       this.mutableRecordMap.set(key, record);
-      const { stableId } = record.record;
-      if (stableId != null) {
-        const existing = this.stableIdToRecord.get(stableId);
+      const { recordNumber } = record.record;
+      if (recordNumber != null) {
+        const existing = this.numberToRecord.get(recordNumber);
         if (existing === undefined) {
-          this.stableIdToRecord.set(stableId, key);
+          this.numberToRecord.set(recordNumber, key);
         } else {
           const otherRecord = this.recordMap.get(existing)!;
           const otherRecordName = otherRecord.record.name.text;
-          const otherRecordType = otherRecord.record.recordType;
           const otherModulePath = otherRecord.modulePath;
-          const otherInfo = `${otherRecordType} ${otherRecordName} in ${otherModulePath}`;
           errors.push({
             token: record.record.name,
-            message: `Duplicate stable id (id: ${stableId}, other: ${otherInfo})`,
+            message: `Same number as ${otherRecordName} in ${otherModulePath}`,
           });
         }
       }
@@ -257,7 +256,7 @@ export class ModuleSet {
       }
     }
     // Resolve every request/response type of every method in the module.
-    // Store the result in the Procedure object.
+    // Store the result in the Method object.
     for (const method of module.methods) {
       {
         const request = method.unresolvedRequestType;
@@ -274,6 +273,18 @@ export class ModuleSet {
         if (responseType) {
           this.validateArrayKeys(responseType, errors);
         }
+      }
+      const { number } = method;
+      const existing = this.numberToMethod.get(number);
+      if (existing === undefined) {
+        this.numberToMethod.set(number, method);
+      } else {
+        const otherMethodName = existing.name.text;
+        const otherModulePath = existing.name.line.modulePath;
+        errors.push({
+          token: method.name,
+          message: `Same number as ${otherMethodName} in ${otherModulePath}`,
+        });
       }
     }
     // Resolve every constant type. Store the result in the constant object.
@@ -787,7 +798,8 @@ export class ModuleSet {
   private readonly modules = new Map<string, Result<Module | null>>();
   private readonly mutableRecordMap = new Map<RecordKey, RecordLocation>();
   private readonly mutableResolvedModules: MutableModule[] = [];
-  private readonly stableIdToRecord = new Map<number, RecordKey>();
+  private readonly numberToRecord = new Map<number, RecordKey>();
+  private readonly numberToMethod = new Map<number, Method>();
   private readonly mutableErrors: SoiaError[] = [];
 
   get recordMap(): ReadonlyMap<RecordKey, RecordLocation> {
@@ -1092,7 +1104,7 @@ class DefaultModuleParser implements ModuleParser {
       };
     }
 
-    return parseModule(tokens.result, modulePath);
+    return parseModule(tokens.result, modulePath, code);
   }
 }
 

@@ -313,7 +313,11 @@ export interface Record<Mutable extends boolean = boolean> {
   readonly nestedRecords: ReadonlyArray<Record<Mutable>>;
   readonly numbering: Numbering;
   readonly removedNumbers: readonly number[];
-  readonly stableId: number | null;
+  /**
+   * A number which uniquely identifies this record, if specified.
+   * Syntax: `struct Foo(123) { ... }`
+   */
+  readonly recordNumber: number | null;
   /**
    * If the record is a struct, 1 + the maximum field number.
    * Zero if the record is an enum.
@@ -361,7 +365,9 @@ export interface MutableMethod<Mutable extends boolean = true> {
   requestType: ResolvedType<Mutable> | undefined;
   responseType: ResolvedType<Mutable> | undefined;
   // A hash of the name, or the explicit number specified after "=" if any.
+  // In the uint32 range.
   readonly number: number;
+  readonly explicitNumber: boolean;
 }
 
 export type Method<Mutable extends boolean = boolean> = //
@@ -484,6 +490,8 @@ export type ImportedNames =
 export interface Module<Mutable extends boolean = boolean> {
   readonly kind: "module";
   readonly path: string;
+  readonly sourceCode: string;
+
   readonly nameToDeclaration: { [n: string]: ModuleLevelDeclaration<Mutable> };
   readonly declarations: ReadonlyArray<ModuleLevelDeclaration<Mutable>>;
 
@@ -497,8 +505,7 @@ export interface Module<Mutable extends boolean = boolean> {
    * All the record declared in the module, at the top-level or not.
    * Depth-first: "Foo.Bar" will appear before "Foo".
    */
-  readonly records: //
-  Mutable extends true //
+  readonly records: Mutable extends true
     ? MutableRecordLocation[]
     : readonly RecordLocation[];
 

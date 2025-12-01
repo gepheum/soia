@@ -4,10 +4,10 @@ import { parseModule } from "./parser.js";
 import { tokenizeModule } from "./tokenizer.js";
 import { Module, Result } from "./types.js";
 
-function parse(contents: string): Result<Module> {
+function parse(content: string): Result<Module> {
   const pathToModule = "path/to/module";
-  const tokenizerResult = tokenizeModule(contents, pathToModule);
-  return parseModule(tokenizerResult.result, pathToModule);
+  const tokenizerResult = tokenizeModule(content, pathToModule);
+  return parseModule(tokenizerResult.result, pathToModule, content);
 }
 
 describe("module parser", () => {
@@ -168,8 +168,7 @@ describe("module parser", () => {
 
   it("record with stable id", () => {
     const actualModule = parse(`
-    struct Foo(2147483647) {}
-    struct Bar(-2147483648) {}
+    struct Foo(4294967295) {}
     enum Zoo(0) {}`);
 
     expect(actualModule).toMatch({
@@ -179,15 +178,11 @@ describe("module parser", () => {
         nameToDeclaration: {
           Foo: {
             kind: "record",
-            stableId: 2147483647,
-          },
-          Bar: {
-            kind: "record",
-            stableId: -2147483648,
+            recordNumber: 4294967295,
           },
           Zoo: {
             kind: "record",
-            stableId: 0,
+            recordNumber: 0,
           },
         },
       },
@@ -694,15 +689,15 @@ describe("module parser", () => {
 
   it("struct with stable id out of bounds", () => {
     const actualModule = parse(`
-      struct A(2147483648) {}`);
+      struct A(4294967296) {}`);
 
     expect(actualModule).toMatch({
       errors: [
         {
           token: {
-            text: "2147483648",
+            text: "4294967296",
           },
-          message: "Stable id must be a 32-bit signed integer",
+          message: "Value out of uint32 range",
         },
       ],
     });
@@ -917,7 +912,8 @@ describe("module parser", () => {
                 },
               ],
             },
-            number: 2472497608,
+            number: 2446226092,
+            explicitNumber: false,
           },
         },
         methods: [
@@ -926,7 +922,8 @@ describe("module parser", () => {
             name: {
               text: "Search",
             },
-            number: 2472497608,
+            number: 2446226092,
+            explicitNumber: false,
           },
         ],
       },
@@ -974,6 +971,7 @@ describe("module parser", () => {
               text: "Search",
             },
             number: 200,
+            explicitNumber: true,
           },
         ],
       },

@@ -135,7 +135,8 @@ describe("module set", () => {
                 text: "Bar",
               },
             },
-            number: 2129467645,
+            number: 2103196129,
+            explicitNumber: false,
           },
           GetBar2: {
             number: 100,
@@ -151,7 +152,7 @@ describe("module set", () => {
         records: [
           { record: { name: { text: "Foo" } } },
           { record: { name: { text: "Outer" } } },
-          { record: { name: { text: "Inner" }, stableId: 101 } },
+          { record: { name: { text: "Inner" }, recordNumber: 101 } },
           { record: { name: { text: "Bar" } } },
         ],
       },
@@ -1115,12 +1116,35 @@ describe("module set", () => {
             token: {
               text: "Bar",
             },
-            message:
-              "Duplicate stable id (id: 100, other: struct Foo in path/to/module)",
+            message: "Same number as Foo in path/to/module",
           },
         ],
       });
     }
+  });
+
+  it("all method numbers must be distinct", () => {
+    const fakeFileReader = new FakeFileReader();
+    fakeFileReader.pathToCode.set(
+      "path/to/root/path/to/module",
+      `
+        method GetFoo(string): string = 2103196129;
+        method GetBar(string): string;
+      `,
+    );
+
+    const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
+    const actual = moduleSet.parseAndResolve("path/to/module");
+    expect(actual).toMatch({
+      errors: [
+        {
+          token: {
+            text: "GetBar",
+          },
+          message: "Same number as GetFoo in path/to/module",
+        },
+      ],
+    });
   });
 
   describe("constants", () => {
