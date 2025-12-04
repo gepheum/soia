@@ -810,6 +810,18 @@ export class ModuleSet {
     return this.mutableResolvedModules;
   }
 
+  findRecordByNumber(recordNumber: number): RecordLocation | undefined {
+    const recordKey = this.numberToRecord.get(recordNumber);
+    if (recordKey === undefined) {
+      return undefined;
+    }
+    return this.recordMap.get(recordKey);
+  }
+
+  findMethodByNumber(methodNumber: number): Method | undefined {
+    return this.numberToMethod.get(methodNumber);
+  }
+
   get errors(): readonly SoiaError[] {
     return this.mutableErrors;
   }

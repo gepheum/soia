@@ -136,7 +136,7 @@ describe("module set", () => {
               },
             },
             number: 2103196129,
-            explicitNumber: false,
+            hasExplicitNumber: false,
           },
           GetBar2: {
             number: 100,

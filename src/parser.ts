@@ -788,7 +788,7 @@ function parseMethod(it: TokenIterator): MutableMethod | null {
     // Will be populated at a later stage.
     responseType: undefined,
     number: number,
-    explicitNumber: explicitNumber,
+    hasExplicitNumber: explicitNumber,
   };
 }
 

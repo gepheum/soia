@@ -367,7 +367,7 @@ export interface MutableMethod<Mutable extends boolean = true> {
   // A hash of the name, or the explicit number specified after "=" if any.
   // In the uint32 range.
   readonly number: number;
-  readonly explicitNumber: boolean;
+  readonly hasExplicitNumber: boolean;
 }
 
 export type Method<Mutable extends boolean = boolean> = //
