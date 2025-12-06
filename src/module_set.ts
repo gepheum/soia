@@ -1091,16 +1091,11 @@ export interface ModuleParser {
   parseModule(modulePath: string): Result<MutableModule | null>;
 }
 
-class DefaultModuleParser implements ModuleParser {
-  constructor(
-    private readonly fileReader: FileReader,
-    private readonly rootPath: string,
-  ) {}
+abstract class ModuleParserBase implements ModuleParser {
+  abstract readSourceCode(modulePath: string): string | undefined;
 
   parseModule(modulePath: string): Result<MutableModule | null> {
-    const code = this.fileReader.readTextFile(
-      paths.join(this.rootPath, modulePath),
-    );
+    const code = this.readSourceCode(modulePath);
     if (code === undefined) {
       return {
         result: null,
@@ -1118,6 +1113,35 @@ class DefaultModuleParser implements ModuleParser {
 
     return parseModule(tokens.result, modulePath, code);
   }
+}
+
+class DefaultModuleParser extends ModuleParserBase {
+  constructor(
+    private readonly fileReader: FileReader,
+    private readonly rootPath: string,
+  ) {
+    super();
+  }
+
+  readSourceCode(modulePath: string): string | undefined {
+    return this.fileReader.readTextFile(paths.join(this.rootPath, modulePath));
+  }
+}
+
+class MapBasedModuleParser extends ModuleParserBase {
+  constructor(private readonly moduleMap: ReadonlyMap<string, string>) {
+    super();
+  }
+
+  readSourceCode(modulePath: string): string | undefined {
+    return this.moduleMap.get(modulePath);
+  }
+}
+
+export function makeMapBasedModuleParser(
+  map: ReadonlyMap<string, string>,
+): ModuleParser {
+  return new MapBasedModuleParser(map);
 }
 
 function resolveModulePath(

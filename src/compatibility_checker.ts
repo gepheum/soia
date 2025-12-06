@@ -185,6 +185,15 @@ class BackwardCompatibilityChecker {
     record: BeforeAfter<RecordLocation>,
     recordExpression: BeforeAfter<Expression>,
   ): void {
+    {
+      // Avoid infinite recursion when checking recursive records.
+      const recordKeys =
+        record.before.record.key + ":" + record.after.record.key;
+      if (this.seenRecordKeys.has(recordKeys)) {
+        return;
+      }
+      this.seenRecordKeys.add(recordKeys);
+    }
     const recordName = map(record, (r) => r.record.name);
     const recordType = map(record, (r) => r.record.recordType);
     if (recordType.after !== recordType.before) {
@@ -370,6 +379,8 @@ class BackwardCompatibilityChecker {
     Token,
     Set<BreakingChangeError["kind"]>
   >();
+  // Helps avoid infinite recursion when checking recursive records.
+  private readonly seenRecordKeys = new Set<string>();
 }
 
 function getTokenForError(error: BreakingChangeError): Token | null {
@@ -453,7 +464,7 @@ function primitiveTypesAreCompatible(type: BeforeAfter<Primitive>): boolean {
     case "timestamp":
     case "string":
     case "bytes":
-      return type.after === "bytes";
+      return type.after === type.before;
   }
 }
 
