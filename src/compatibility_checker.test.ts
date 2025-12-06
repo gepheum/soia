@@ -228,6 +228,133 @@ describe("compatibility checker", () => {
       },
     ]);
   });
+
+  it("record kind change", () => {
+    expect(
+      doCheckBackwardCompatibility({
+        before: `
+          struct Bar {}
+
+          struct Foo {
+            bar: Bar;
+          }
+
+          struct A(101) {
+            foo: Foo;
+          }
+        `,
+        after: `
+          enum BarBar {}
+
+          struct Foo {
+            barbar: BarBar;
+            bar: BarBar;
+          }
+
+          struct A(101) {
+            foo: Foo;
+          }
+        `,
+      }),
+    ).toMatch([
+      {
+        kind: "record-kind-change",
+        recordName: {
+          before: {
+            text: "Bar",
+          },
+          after: {
+            text: "BarBar",
+          },
+        },
+        recordExpression: {
+          before: {
+            kind: "property",
+            structExpression: {
+              kind: "property",
+              structExpression: {
+                kind: "record",
+                recordName: {
+                  text: "A",
+                },
+              },
+              fieldName: {
+                text: "foo",
+              },
+            },
+            fieldName: {
+              text: "bar",
+            },
+          },
+          after: {
+            kind: "property",
+            structExpression: {
+              kind: "property",
+              structExpression: {
+                kind: "record",
+                recordName: {
+                  text: "A",
+                },
+              },
+              fieldName: {
+                text: "foo",
+              },
+            },
+            fieldName: {
+              text: "barbar",
+            },
+          },
+        },
+        recordType: {
+          before: "struct",
+          after: "enum",
+        },
+      },
+    ]);
+  });
+
+  it("enum variant kind change", () => {
+    expect(
+      doCheckBackwardCompatibility({
+        before: `
+          enum E(100) {
+            a: string;
+          }
+        `,
+        after: `
+          enum EE(100) {
+            A;
+          }
+        `,
+      }),
+    ).toMatch([
+      {
+        kind: "enum-variant-kind-change",
+        enumEpression: {
+          before: {
+            kind: "record",
+            recordName: {
+              text: "E",
+            },
+          },
+          after: {
+            kind: "record",
+            recordName: {
+              text: "EE",
+            },
+          },
+        },
+        variantName: {
+          before: {
+            text: "a",
+          },
+          after: {
+            text: "A",
+          },
+        },
+      },
+    ]);
+  });
 });
 
 function doCheckBackwardCompatibility(
