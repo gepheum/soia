@@ -355,6 +355,111 @@ describe("compatibility checker", () => {
       },
     ]);
   });
+
+  it("primitive type compatibility", () => {
+    // Compatible primitive type changes
+    expect(
+      doCheckBackwardCompatibility({
+        before: `
+          struct A(101) {
+            bool_field: bool;
+            int32_field: int32;
+            int64_field: int64;
+            uint64_field: uint64;
+            float32_field: float32;
+            float64_field: float64;
+          }
+        `,
+        after: `
+          struct A(101) {
+            bool_field: int64;
+            int32_field: float64;
+            int64_field: float32;
+            uint64_field: float64;
+            float32_field: float64;
+            float64_field: float32;
+          }
+        `,
+      }),
+    ).toMatch([]);
+
+    // Incompatible primitive type changes
+    expect(
+      doCheckBackwardCompatibility({
+        before: `
+          struct B(102) {
+            str: string;
+            num: int32;
+          }
+        `,
+        after: `
+          struct B(102) {
+            str: bytes;
+            num: string;
+          }
+        `,
+      }),
+    ).toMatch([
+      {
+        kind: "illegal-type-change",
+        expression: {
+          before: {
+            kind: "property",
+            structExpression: {
+              kind: "record",
+              recordName: {
+                text: "B",
+              },
+            },
+            fieldName: {
+              text: "str",
+            },
+          },
+          after: {
+            kind: "property",
+            structExpression: {
+              kind: "record",
+              recordName: {
+                text: "B",
+              },
+            },
+            fieldName: {
+              text: "str",
+            },
+          },
+        },
+      },
+      {
+        kind: "illegal-type-change",
+        expression: {
+          before: {
+            kind: "property",
+            structExpression: {
+              kind: "record",
+              recordName: {
+                text: "B",
+              },
+            },
+            fieldName: {
+              text: "num",
+            },
+          },
+          after: {
+            kind: "property",
+            structExpression: {
+              kind: "record",
+              recordName: {
+                text: "B",
+              },
+            },
+            fieldName: {
+              text: "num",
+            },
+          },
+        },
+      },
+    ]);
+  });
 });
 
 function doCheckBackwardCompatibility(
