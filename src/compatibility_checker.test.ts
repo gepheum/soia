@@ -236,23 +236,23 @@ describe("compatibility checker", () => {
           struct Bar {}
 
           struct Foo {
-            bar: Bar;
+            bar: [Bar];
           }
 
           struct A(101) {
-            foo: Foo;
+            foo: Foo?;
           }
         `,
         after: `
           enum BarBar {}
 
           struct Foo {
-            barbar: BarBar;
+            barbar: [BarBar];
             bar: BarBar;
           }
 
           struct A(101) {
-            foo: Foo;
+            foo: Foo?;
           }
         `,
       }),
@@ -269,39 +269,51 @@ describe("compatibility checker", () => {
         },
         recordExpression: {
           before: {
-            kind: "property",
-            structExpression: {
+            kind: "item",
+            arrayExpression: {
               kind: "property",
               structExpression: {
-                kind: "record",
-                recordName: {
-                  text: "A",
+                kind: "optional-value",
+                optionalExpression: {
+                  kind: "property",
+                  structExpression: {
+                    kind: "record",
+                    recordName: {
+                      text: "A",
+                    },
+                  },
+                  fieldName: {
+                    text: "foo",
+                  },
                 },
               },
               fieldName: {
-                text: "foo",
+                text: "bar",
               },
-            },
-            fieldName: {
-              text: "bar",
             },
           },
           after: {
-            kind: "property",
-            structExpression: {
+            kind: "item",
+            arrayExpression: {
               kind: "property",
               structExpression: {
-                kind: "record",
-                recordName: {
-                  text: "A",
+                kind: "optional-value",
+                optionalExpression: {
+                  kind: "property",
+                  structExpression: {
+                    kind: "record",
+                    recordName: {
+                      text: "A",
+                    },
+                  },
+                  fieldName: {
+                    text: "foo",
+                  },
                 },
               },
               fieldName: {
-                text: "foo",
+                text: "barbar",
               },
-            },
-            fieldName: {
-              text: "barbar",
             },
           },
         },
