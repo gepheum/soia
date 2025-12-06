@@ -472,6 +472,41 @@ describe("compatibility checker", () => {
       },
     ]);
   });
+
+  it("incompatible method request/response types", () => {
+    expect(
+      doCheckBackwardCompatibility({
+        before: `
+          method Get(string): string = 101;
+        `,
+        after: `
+          method Get(bool): bool = 101; 
+        `,
+      }),
+    ).toMatch([
+      {
+        kind: "illegal-type-change",
+        expression: {
+          before: {
+            kind: "request-type",
+          },
+          after: {
+            kind: "request-type",
+          },
+        },
+        types: {
+          before: {
+            kind: "primitive",
+            primitive: "string",
+          },
+          after: {
+            kind: "primitive",
+            primitive: "bool",
+          },
+        },
+      },
+    ]);
+  });
 });
 
 function doCheckBackwardCompatibility(
