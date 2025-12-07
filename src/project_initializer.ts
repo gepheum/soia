@@ -25,9 +25,11 @@ export function initializeProject(rootDir: string): void {
     const helloWorldPath = paths.join(skirSrcDir, "hello_world.skir");
     fs.writeFileSync(helloWorldPath, HELLO_WORLD_SKIR_CONTENT, "utf-8");
   }
+
+  console.log(`Done. Please edit: ${skirYmlPath}`);
 }
 
-const SKIR_YML_CONTENT = `# skir.yml`;
+const SKIR_YML_CONTENT = `srcDir: skir-src`;
 
 const HELLO_WORLD_SKIR_CONTENT = `struct Point {
   x: int32;

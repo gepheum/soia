@@ -348,6 +348,17 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  switch (args.kind) {
+    case "init": {
+      initializeProject(root!);
+      return;
+    }
+    case "help":
+    case "error": {
+      return;
+    }
+  }
+
   // Use an absolute path to make error messages more helpful.
   const skirConfigPath = paths.resolve(paths.join(root!, "skir.yml"));
   const skirConfigContents = REAL_FILE_SYSTEM.readTextFile(skirConfigPath);
@@ -414,10 +425,6 @@ async function main(): Promise<void> {
       }
       break;
     }
-    case "init": {
-      initializeProject(root!);
-      break;
-    }
     case "snapshot": {
       takeSnapshot({
         rootDir: root!,
@@ -426,9 +433,9 @@ async function main(): Promise<void> {
       });
       break;
     }
-    case "help":
-    case "error": {
-      break;
+    default: {
+      const _: never = args;
+      throw new TypeError(_);
     }
   }
 }
