@@ -17,10 +17,10 @@ import { formatModule } from "./formatter.js";
 import { REAL_FILE_SYSTEM } from "./io.js";
 import { collectModules } from "./module_collector.js";
 import { ModuleSet } from "./module_set.js";
+import { initializeProject } from "./project_initializer.js";
 import { takeSnapshot } from "./snapshotter.js";
 import { tokenizeModule } from "./tokenizer.js";
 import type { CodeGenerator } from "./types.js";
-import { initializeProject } from "./project_initializer.js";
 
 interface GeneratorBundle<Config = unknown> {
   generator: CodeGenerator<Config>;
