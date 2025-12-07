@@ -41,6 +41,10 @@ export class ModuleSet {
     return new ModuleSet(new DefaultModuleParser(fileReader, rootPath));
   }
 
+  static fromMap(map: ReadonlyMap<string, string>): ModuleSet {
+    return new ModuleSet(new MapBasedModuleParser(map));
+  }
+
   constructor(private readonly moduleParser: ModuleParser) {}
 
   parseAndResolve(
@@ -1136,12 +1140,6 @@ class MapBasedModuleParser extends ModuleParserBase {
   readSourceCode(modulePath: string): string | undefined {
     return this.moduleMap.get(modulePath);
   }
-}
-
-export function makeMapBasedModuleParser(
-  map: ReadonlyMap<string, string>,
-): ModuleParser {
-  return new MapBasedModuleParser(map);
 }
 
 function resolveModulePath(

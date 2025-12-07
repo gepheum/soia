@@ -2,10 +2,10 @@ import { expect } from "buckwheat";
 import { describe, it } from "mocha";
 import {
   BeforeAfter,
-  BreakingChangeError,
+  BreakingChange,
   checkBackwardCompatibility,
 } from "./compatibility_checker.js";
-import { ModuleSet, makeMapBasedModuleParser } from "./module_set.js";
+import { ModuleSet } from "./module_set.js";
 
 describe("compatibility checker", () => {
   it("compatible changes", () => {
@@ -106,12 +106,20 @@ describe("compatibility checker", () => {
     ).toMatch([
       {
         kind: "missing-slots",
-        recordName: {
+        record: {
           before: {
-            text: "A",
+            record: {
+              name: {
+                text: "A",
+              },
+            },
           },
           after: {
-            text: "B",
+            record: {
+              name: {
+                text: "B",
+              },
+            },
           },
         },
         recordExpression: {
@@ -150,8 +158,12 @@ describe("compatibility checker", () => {
     ).toMatch([
       {
         kind: "missing-record",
-        recordName: {
-          text: "A",
+        record: {
+          record: {
+            name: {
+              text: "A",
+            },
+          },
         },
         recordNumber: 101,
       },
@@ -171,10 +183,12 @@ describe("compatibility checker", () => {
     ).toMatch([
       {
         kind: "missing-method",
-        methodName: {
-          text: "Capitalize",
+        method: {
+          name: {
+            text: "Capitalize",
+          },
+          number: 101,
         },
-        methodNumber: 101,
       },
     ]);
   });
@@ -202,12 +216,20 @@ describe("compatibility checker", () => {
     ).toMatch([
       {
         kind: "removed-number-reintroduced",
-        recordName: {
+        record: {
           before: {
-            text: "A",
+            record: {
+              name: {
+                text: "A",
+              },
+            },
           },
           after: {
-            text: "B",
+            record: {
+              name: {
+                text: "B",
+              },
+            },
           },
         },
         recordExpression: {
@@ -259,12 +281,20 @@ describe("compatibility checker", () => {
     ).toMatch([
       {
         kind: "record-kind-change",
-        recordName: {
+        record: {
           before: {
-            text: "Bar",
+            record: {
+              name: {
+                text: "Bar",
+              },
+            },
           },
           after: {
-            text: "BarBar",
+            record: {
+              name: {
+                text: "BarBar",
+              },
+            },
           },
         },
         recordExpression: {
@@ -494,7 +524,7 @@ describe("compatibility checker", () => {
             kind: "request-type",
           },
         },
-        types: {
+        type: {
           before: {
             kind: "primitive",
             primitive: "string",
@@ -511,7 +541,7 @@ describe("compatibility checker", () => {
 
 function doCheckBackwardCompatibility(
   sourceCode: BeforeAfter<string>,
-): readonly BreakingChangeError[] {
+): readonly BreakingChange[] {
   const moduleSet: BeforeAfter<ModuleSet> = {
     before: parseModuleSet(sourceCode.before),
     after: parseModuleSet(sourceCode.after),
@@ -523,9 +553,7 @@ function parseModuleSet(sourceCode: string): ModuleSet {
   const modulePath = "path/to/module";
   const modulePathToSourceCode = new Map<string, string>();
   modulePathToSourceCode.set(modulePath, sourceCode);
-  const moduleSet = new ModuleSet(
-    makeMapBasedModuleParser(modulePathToSourceCode),
-  );
+  const moduleSet = ModuleSet.fromMap(modulePathToSourceCode);
   const { errors } = moduleSet.parseAndResolve(modulePath);
   if (errors.length > 0) {
     const firstError = errors[0]!;

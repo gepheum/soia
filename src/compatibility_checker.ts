@@ -14,46 +14,47 @@ export interface BeforeAfter<T> {
   after: T;
 }
 
-export type BreakingChangeError =
+export type BreakingChange =
   | {
       kind: "illegal-type-change";
       expression: BeforeAfter<Expression>;
-      types: BeforeAfter<ResolvedType>;
+      type: BeforeAfter<ResolvedType>;
     }
   | {
       kind: "missing-slots";
-      recordName: BeforeAfter<Token>;
+      record: BeforeAfter<RecordLocation>;
       recordExpression: BeforeAfter<Expression>;
       missingRangeStart: number;
       missingRangeEnd: number;
     }
   | {
       kind: "missing-record";
-      recordName: Token;
+      record: RecordLocation;
       recordNumber: number;
     }
   | {
       kind: "missing-method";
-      methodName: Token;
-      methodNumber: number;
+      method: Method;
     }
   | {
       kind: "record-kind-change";
-      recordName: BeforeAfter<Token>;
+      record: BeforeAfter<RecordLocation>;
       recordExpression: BeforeAfter<Expression>;
       recordType: BeforeAfter<"struct" | "enum">;
     }
   | {
       kind: "removed-number-reintroduced";
-      recordName: BeforeAfter<Token>;
+      record: BeforeAfter<RecordLocation>;
       recordExpression: BeforeAfter<Expression>;
       removedNumber: number;
+      reintroducedAs: Token;
     }
   | {
       kind: "enum-variant-kind-change";
-      recordName: BeforeAfter<Token>;
+      record: BeforeAfter<RecordLocation>;
       enumEpression: BeforeAfter<Expression>;
       variantName: BeforeAfter<Token>;
+      number: number;
     };
 
 export type Expression =
@@ -90,47 +91,23 @@ export type Expression =
 
 export function checkBackwardCompatibility(
   moduleSet: BeforeAfter<ModuleSet>,
-): readonly BreakingChangeError[] {
+): readonly BreakingChange[] {
   return new BackwardCompatibilityChecker(moduleSet).check();
-}
-
-export function expressionToString(expression: Expression): string {
-  switch (expression.kind) {
-    case "request-type":
-      return `(${expression.methodName.text}::request)`;
-    case "response-type":
-      return `(${expression.methodName.text}::response)`;
-    case "record":
-      return `${expression.recordName.text}`;
-    case "item":
-      return expressionToString(expression.arrayExpression) + "[*]";
-    case "optional-value":
-      return expressionToString(expression.optionalExpression) + "!";
-    case "property": {
-      const structExpression = expressionToString(expression.structExpression);
-      return `${structExpression}.${expression.fieldName.text}`;
-    }
-    case "as-variant": {
-      const enumExpression = expressionToString(expression.enumExpression);
-      return `${enumExpression}.as_${expression.variantName.text}`;
-    }
-  }
 }
 
 class BackwardCompatibilityChecker {
   constructor(private readonly moduleSet: BeforeAfter<ModuleSet>) {}
 
-  check(): readonly BreakingChangeError[] {
+  check(): readonly BreakingChange[] {
     for (const moduleBefore of this.moduleSet.before.resolvedModules) {
       for (const methodBefore of moduleBefore.methods) {
         if (methodBefore.hasExplicitNumber) {
           const { number } = methodBefore;
           const methodAfter = this.moduleSet.after.findMethodByNumber(number);
           if (methodAfter === undefined) {
-            this.errors.push({
+            this.breakingChanges.push({
               kind: "missing-method",
-              methodName: methodBefore.name,
-              methodNumber: number,
+              method: methodBefore,
             });
           } else {
             this.checkMethod({
@@ -146,9 +123,9 @@ class BackwardCompatibilityChecker {
           const recordAfter =
             this.moduleSet.after.findRecordByNumber(recordNumber);
           if (recordAfter === undefined) {
-            this.errors.push({
+            this.breakingChanges.push({
               kind: "missing-record",
-              recordName: recordBefore.record.name,
+              record: recordBefore,
               recordNumber: recordNumber,
             });
           } else {
@@ -167,7 +144,7 @@ class BackwardCompatibilityChecker {
         }
       }
     }
-    return this.errors;
+    return this.breakingChanges;
   }
 
   private checkMethod(method: BeforeAfter<Method>): void {
@@ -194,12 +171,11 @@ class BackwardCompatibilityChecker {
       }
       this.seenRecordKeys.add(recordKeys);
     }
-    const recordName = map(record, (r) => r.record.name);
     const recordType = map(record, (r) => r.record.recordType);
     if (recordType.after !== recordType.before) {
-      this.pushError({
+      this.pushBreakingChange({
         kind: "record-kind-change",
-        recordName,
+        record,
         recordExpression,
         recordType,
       });
@@ -211,9 +187,9 @@ class BackwardCompatibilityChecker {
       record.after.record.numSlotsInclRemovedNumbers <
       numSlotsInclRemovedNumbers
     ) {
-      this.pushError({
+      this.pushBreakingChange({
         kind: "missing-slots",
-        recordName,
+        record,
         recordExpression,
         missingRangeStart: record.after.record.numSlotsInclRemovedNumbers,
         missingRangeEnd: numSlotsInclRemovedNumbers,
@@ -223,12 +199,14 @@ class BackwardCompatibilityChecker {
     const numberToFieldAfter = indexFields(record.after.record);
     // Check that no removed number was reintroduced.
     for (const removedNumber of record.before.record.removedNumbers) {
-      if (numberToFieldAfter.has(removedNumber)) {
-        this.pushError({
+      const fieldAfter = numberToFieldAfter.get(removedNumber);
+      if (fieldAfter) {
+        this.pushBreakingChange({
           kind: "removed-number-reintroduced",
-          recordName,
+          record,
           recordExpression,
           removedNumber: removedNumber,
+          reintroducedAs: fieldAfter.name,
         });
       }
     }
@@ -270,14 +248,15 @@ class BackwardCompatibilityChecker {
               },
         );
       } else if (fieldBefore.type || fieldAfter.type) {
-        this.pushError({
+        this.pushBreakingChange({
           kind: "enum-variant-kind-change",
-          recordName,
+          record,
           enumEpression: recordExpression,
           variantName: {
             before: fieldBefore.name,
             after: fieldAfter.name,
           },
+          number: fieldBefore.number,
         });
       }
     }
@@ -287,10 +266,10 @@ class BackwardCompatibilityChecker {
     type: BeforeAfter<ResolvedType>,
     expression: BeforeAfter<Expression>,
   ): null {
-    const illegalTypeChangeError: BreakingChangeError = {
+    const illegalTypeChange: BreakingChange = {
       kind: "illegal-type-change",
       expression: expression,
-      types: type,
+      type: type,
     };
     switch (type.before.kind) {
       case "array": {
@@ -306,7 +285,7 @@ class BackwardCompatibilityChecker {
             })),
           );
         } else {
-          this.pushError(illegalTypeChangeError);
+          this.pushBreakingChange(illegalTypeChange);
           return null;
         }
       }
@@ -323,7 +302,7 @@ class BackwardCompatibilityChecker {
             })),
           );
         } else {
-          this.pushError(illegalTypeChangeError);
+          this.pushBreakingChange(illegalTypeChange);
           return null;
         }
       }
@@ -336,7 +315,7 @@ class BackwardCompatibilityChecker {
           this.checkRecord(record, expression);
           return null;
         } else {
-          this.pushError(illegalTypeChangeError);
+          this.pushBreakingChange(illegalTypeChange);
           return null;
         }
       }
@@ -348,51 +327,55 @@ class BackwardCompatibilityChecker {
             after: type.after.primitive,
           })
         ) {
-          this.pushError(illegalTypeChangeError);
+          this.pushBreakingChange(illegalTypeChange);
         }
         return null;
       }
     }
   }
 
-  private pushError(error: BreakingChangeError): void {
-    const token = getTokenForError(error);
+  private pushBreakingChange(breakingChange: BreakingChange): void {
+    const token = getTokenForBreakingChange(breakingChange);
     if (token === null) {
       return;
     }
-    let tokenErrorKinds = this.tokenToErrorKinds.get(token);
-    if (tokenErrorKinds === undefined) {
-      tokenErrorKinds = new Set();
-      this.tokenToErrorKinds.set(token, tokenErrorKinds);
+    let tokenBreakingChangeKinds = this.tokenToBreakingChangeKinds.get(token);
+    if (tokenBreakingChangeKinds === undefined) {
+      tokenBreakingChangeKinds = new Set();
+      this.tokenToBreakingChangeKinds.set(token, tokenBreakingChangeKinds);
     }
-    if (tokenErrorKinds.has(error.kind)) {
+    if (tokenBreakingChangeKinds.has(breakingChange.kind)) {
       return;
     }
-    tokenErrorKinds.add(error.kind);
-    this.errors.push(error);
+    tokenBreakingChangeKinds.add(breakingChange.kind);
+    this.breakingChanges.push(breakingChange);
   }
 
-  private readonly errors: BreakingChangeError[] = [];
-  // This map helps avoid reporting multiple variants of the same error on the
-  // same token multiple times.
-  private readonly tokenToErrorKinds = new Map<
+  private readonly breakingChanges: BreakingChange[] = [];
+  // This map helps avoid reporting multiple variants of the same breaking
+  // change on the same token multiple times.
+  private readonly tokenToBreakingChangeKinds = new Map<
     Token,
-    Set<BreakingChangeError["kind"]>
+    Set<BreakingChange["kind"]>
   >();
   // Helps avoid infinite recursion when checking recursive records.
   private readonly seenRecordKeys = new Set<string>();
 }
 
-function getTokenForError(error: BreakingChangeError): Token | null {
-  switch (error.kind) {
+function getTokenForBreakingChange(
+  breakingChange: BreakingChange,
+): Token | null {
+  switch (breakingChange.kind) {
     case "illegal-type-change": {
-      return getTokenForExpression(error.expression.after);
+      return getTokenForExpression(breakingChange.expression.after);
     }
     case "missing-slots":
     case "record-kind-change":
-    case "enum-variant-kind-change":
+    case "enum-variant-kind-change": {
+      return breakingChange.record.after.record.name;
+    }
     case "removed-number-reintroduced": {
-      return error.recordName.after;
+      return breakingChange.reintroducedAs;
     }
     case "missing-record":
     case "missing-method": {
@@ -401,7 +384,7 @@ function getTokenForError(error: BreakingChangeError): Token | null {
   }
 }
 
-function getTokenForExpression(expression: Expression): Token {
+export function getTokenForExpression(expression: Expression): Token {
   switch (expression.kind) {
     case "item": {
       return getTokenForExpression(expression.arrayExpression);

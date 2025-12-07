@@ -4,6 +4,15 @@ export const GeneratorConfig = z
   .object({
     mod: z.string(),
     config: z.any(),
+    soiagenDir: z
+      .union([
+        z
+          .string()
+          .regex(/^.*\/soiagen$/)
+          .optional(),
+        z.array(z.string().regex(/^.*\/soiagen$/)),
+      ])
+      .optional(),
   })
   .strict();
 
@@ -13,16 +22,6 @@ export const SoiaConfig = z
   .object({
     generators: z.array(GeneratorConfig),
     srcDir: z.string().optional(),
-    mirroredSoiagenDirs: z
-      .array(
-        z
-          .object({
-            path: z.string().regex(/^.*\/soiagen$/),
-            fileRegex: z.string().optional(),
-          })
-          .strict(),
-      )
-      .optional(),
   })
   .strict();
 

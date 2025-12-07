@@ -6,7 +6,7 @@ export function validate(
   expected: "lower_underscore" | "UpperCamel" | "UPPER_UNDERSCORE",
   errors: ErrorSink,
 ): void {
-  if (!matches(name.text, expected)) {
+  if (!caseMatches(name.text, expected)) {
     errors.push({
       token: name,
       expected: expected,
@@ -49,7 +49,7 @@ export function capitalize(name: string): string {
   return name[0]!.toUpperCase() + name.slice(1);
 }
 
-function matches(
+export function caseMatches(
   name: string,
   expected: "lower_underscore" | "UpperCamel" | "UPPER_UNDERSCORE",
 ): boolean {

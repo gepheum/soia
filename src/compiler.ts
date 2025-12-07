@@ -1,30 +1,36 @@
 #!/usr/bin/env node
 import * as fs from "fs/promises";
 import { glob } from "glob";
-import { parseArgs } from "node:util";
 import * as paths from "path";
 import Watcher from "watcher";
 import * as yaml from "yaml";
 import { fromZodError } from "zod-validation-error";
+import { parseCommandLine } from "./command_line_parser.js";
 import { GeneratorConfig, SoiaConfig } from "./config.js";
+import {
+  makeGray,
+  makeGreen,
+  makeRed,
+  renderErrors,
+} from "./error_renderer.js";
 import { formatModule } from "./formatter.js";
 import { REAL_FILE_SYSTEM } from "./io.js";
+import { collectModules } from "./module_collector.js";
 import { ModuleSet } from "./module_set.js";
+import { takeSnapshot } from "./snapshotter.js";
 import { tokenizeModule } from "./tokenizer.js";
-import type { CodeGenerator, SoiaError } from "./types.js";
+import type { CodeGenerator } from "./types.js";
 
 interface GeneratorBundle<Config = unknown> {
   generator: CodeGenerator<Config>;
   config: Config;
-}
-
-interface SoiagenDir {
-  path: string;
-  fileRegex: RegExp;
+  /// Absolute paths to the soiagen directories.
+  soiagenDirs: string[];
 }
 
 async function makeGeneratorBundle(
   config: GeneratorConfig,
+  root: string,
 ): Promise<GeneratorBundle> {
   const mod = await import(config.mod);
   const generator = mod.GENERATOR;
@@ -35,33 +41,25 @@ async function makeGeneratorBundle(
   const parsedConfig = generator.configType.safeParse(config.config);
   if (!parsedConfig.success) {
     const { id } = generator;
-    console.log(makeRed(`Invalid config for ${id} generator`));
+    console.error(makeRed(`Invalid config for ${id} generator`));
     const validationError = fromZodError(parsedConfig.error);
-    console.log(validationError.toString());
+    console.error(validationError.toString());
     process.exit(1);
   }
-  return {
-    generator: generator,
-    config: parsedConfig.data,
-  };
-}
-
-async function collectModules(root: string): Promise<ModuleSet> {
-  const modules = ModuleSet.create(REAL_FILE_SYSTEM, root);
-  const soiaFiles = await glob(paths.join(root, "**/*.soia"), {
-    stat: true,
-    withFileTypes: true,
-  });
-  for await (const soiaFile of soiaFiles) {
-    if (!soiaFile.isFile) {
-      continue;
-    }
-    const relativePath = paths
-      .relative(root, soiaFile.fullpath())
-      .replace(/\\/g, "/");
-    modules.parseAndResolve(relativePath);
+  let soiagenDirs: string[];
+  if (config.soiagenDir === undefined) {
+    soiagenDirs = ["soiagen"];
+  } else if (typeof config.soiagenDir === "string") {
+    soiagenDirs = [config.soiagenDir];
+  } else {
+    soiagenDirs = config.soiagenDir;
   }
-  return modules;
+  soiagenDirs = soiagenDirs.map((d) => paths.join(root, d));
+  return {
+    generator,
+    config: parsedConfig.data,
+    soiagenDirs,
+  };
 }
 
 interface WriteBatch {
@@ -71,12 +69,20 @@ interface WriteBatch {
 }
 
 class WatchModeMainLoop {
+  private readonly soiagenDirs = new Set<string>();
+
   constructor(
     private readonly srcDir: string,
-    private readonly soiagenDirs: readonly SoiagenDir[],
     private readonly generatorBundles: readonly GeneratorBundle[],
     private readonly watchModeOn: boolean,
-  ) {}
+  ) {
+    for (const generatorBundle of generatorBundles) {
+      for (const soiagenDir of generatorBundle.soiagenDirs) {
+        this.soiagenDirs.add(soiagenDir);
+      }
+    }
+    checkNoOverlappingSoiagenDirs([...this.soiagenDirs]);
+  }
 
   async start(): Promise<void> {
     await this.generate();
@@ -110,7 +116,7 @@ class WatchModeMainLoop {
       } catch (e) {
         const message =
           e && typeof e === "object" && "message" in e ? e.message : e;
-        (console.error || console.log).call(message);
+        console.error(message);
       }
     };
     this.timeoutId = globalThis.setTimeout(callback, delayMillis);
@@ -132,7 +138,7 @@ class WatchModeMainLoop {
       } else {
         await this.doGenerate(moduleSet);
         if (this.watchModeOn) {
-          const date = new Date().toLocaleTimeString("en-GB");
+          const date = new Date().toLocaleTimeString("en-US");
           const successMessage = `Generation succeeded at ${date}`;
           console.log(makeGreen(successMessage));
           console.log("\nWaiting for changes in files matching:");
@@ -153,20 +159,21 @@ class WatchModeMainLoop {
     const { soiagenDirs } = this;
     const preExistingAbsolutePaths = new Set<string>();
     for (const soiagenDir of soiagenDirs) {
-      await fs.mkdir(soiagenDir.path, { recursive: true });
+      await fs.mkdir(soiagenDir, { recursive: true });
 
       // Collect all the files in all the soiagen dirs.
       (
-        await glob(paths.join(soiagenDir.path, "**/*"), { withFileTypes: true })
+        await glob(paths.join(soiagenDir, "**/*"), { withFileTypes: true })
       ).forEach((p) => preExistingAbsolutePaths.add(p.fullpath()));
     }
 
     const pathToFile = new Map<string, CodeGenerator.OutputFile>();
-    for (const bundle of this.generatorBundles) {
-      const files = bundle.generator.generateCode({
+    const pathToGenerator = new Map<string, GeneratorBundle>();
+    for (const generator of this.generatorBundles) {
+      const files = generator.generator.generateCode({
         modules: moduleSet.resolvedModules,
         recordMap: moduleSet.recordMap,
-        config: bundle.config,
+        config: generator.config,
       }).files;
       for (const file of files) {
         const { path } = file;
@@ -174,10 +181,8 @@ class WatchModeMainLoop {
           throw new Error(`Multiple generators produce ${path}`);
         }
         pathToFile.set(path, file);
-        for (const soiagenDir of soiagenDirs) {
-          if (!soiagenDir.fileRegex.test(path)) {
-            continue;
-          }
+        pathToGenerator.set(path, generator);
+        for (const soiagenDir of generator.soiagenDirs) {
           // Remove this path and all its parents from the set of paths to remove
           // at the end of the generation.
           for (
@@ -186,7 +191,7 @@ class WatchModeMainLoop {
             pathToKeep = paths.dirname(pathToKeep)
           ) {
             preExistingAbsolutePaths.delete(
-              paths.resolve(paths.join(soiagenDir.path, pathToKeep)),
+              paths.resolve(paths.join(soiagenDir, pathToKeep)),
             );
           }
         }
@@ -198,11 +203,9 @@ class WatchModeMainLoop {
     await Promise.all(
       Array.from(pathToFile).map(async ([p, newFile]) => {
         const oldFile = lastWriteBatch.pathToFile.get(p);
-        for (const soiagenDir of soiagenDirs) {
-          if (!soiagenDir.fileRegex.test(p)) {
-            continue;
-          }
-          const fsPath = paths.join(soiagenDir.path, p);
+        const generator = pathToGenerator.get(p)!;
+        for (const soiagenDir of generator.soiagenDirs) {
+          const fsPath = paths.join(soiagenDir, p);
           if (oldFile?.code === newFile.code) {
             const mtime = (await fs.stat(fsPath)).mtime;
             if (
@@ -246,77 +249,6 @@ class WatchModeMainLoop {
   };
 }
 
-function makeCyan(text: string): string {
-  return `\x1b[36m${text}\x1b[0m`;
-}
-
-function makeYellow(text: string): string {
-  return `\x1b[33m${text}\x1b[0m`;
-}
-
-function makeRed(text: string): string {
-  return `\x1b[31m${text}\x1b[0m`;
-}
-
-function makeBlackOnWhite(text: string): string {
-  return `\x1b[47m${text}\x1b[0m`;
-}
-
-function makeGreen(text: string): string {
-  return `\x1b[32m${text}\x1b[0m`;
-}
-
-function makeGray(text: string): string {
-  return `\x1b[90m${text}\x1b[0m`;
-}
-
-function formatError(error: SoiaError): string {
-  const { token } = error;
-  const { line, colNumber } = token;
-  const lineNumberStr = (line.lineNumber + 1).toString();
-  let result = makeCyan(line.modulePath);
-  result += ":";
-  result += makeYellow(lineNumberStr);
-  result += ":";
-  result += makeYellow((colNumber + 1).toString());
-  result += " - ";
-  if (error.expected !== undefined) {
-    result += makeRed("expected");
-    result += `: ${error.expected}`;
-  } else {
-    result += makeRed("error");
-    result += `: ${error.message}`;
-  }
-  result += "\n\n";
-  result += makeBlackOnWhite(lineNumberStr);
-  result += " ";
-  result += line.line;
-  result += "\n";
-  result += makeBlackOnWhite(" ".repeat(lineNumberStr.length));
-  result += " ".repeat(colNumber + 1);
-  result += makeRed("~".repeat(Math.max(token.text.length, 1)));
-  result += "\n";
-  return result;
-}
-
-function renderErrors(errors: readonly SoiaError[]): void {
-  const MAX_ERRORS = 10;
-  for (let i = 0; i < errors.length && i < MAX_ERRORS; ++i) {
-    const error = errors[i];
-    console.log(formatError(error!));
-  }
-  // Count the number of distinct modules with errors.
-  if (errors.length) {
-    const modules = new Set<string>();
-    for (const error of errors) {
-      modules.add(error.token.line.modulePath);
-    }
-    const numErrors = `${errors.length} error${errors.length <= 1 ? "" : "s"}`;
-    const numFiles = `${modules.size} file${modules.size <= 1 ? "" : "s"}`;
-    console.log(`Found ${numErrors} in ${numFiles}\n`);
-  }
-}
-
 async function isDirectory(path: string): Promise<boolean> {
   try {
     return (await fs.lstat(path)).isDirectory();
@@ -325,13 +257,11 @@ async function isDirectory(path: string): Promise<boolean> {
   }
 }
 
-function checkNoOverlappingSoiagenDirs(
-  soiagenDirs: readonly SoiagenDir[],
-): void {
+function checkNoOverlappingSoiagenDirs(soiagenDirs: readonly string[]): void {
   for (let i = 0; i < soiagenDirs.length; ++i) {
     for (let j = i + 1; j < soiagenDirs.length; ++j) {
-      const dirA = paths.normalize(soiagenDirs[i]!.path);
-      const dirB = paths.normalize(soiagenDirs[j]!.path);
+      const dirA = paths.normalize(soiagenDirs[i]!);
+      const dirB = paths.normalize(soiagenDirs[j]!);
 
       if (
         dirA.startsWith(dirB + paths.sep) ||
@@ -398,7 +328,7 @@ async function format(root: string, mode: "fix" | "check"): Promise<void> {
       makeRed(
         `${numFilesNotFormatted} file${
           numFilesNotFormatted > 1 ? "s" : ""
-        } not formatted; run with '--fmt fix' to format ${
+        } not formatted; run with 'format fix' to format ${
           numFilesNotFormatted > 1 ? "them" : "it"
         }`,
       ),
@@ -408,27 +338,12 @@ async function format(root: string, mode: "fix" | "check"): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const {
-    values: { root, watch, fmt },
-  } = parseArgs({
-    options: {
-      root: {
-        type: "string",
-        short: "r",
-        default: ".",
-      },
-      watch: {
-        type: "boolean",
-        short: "w",
-      },
-      fmt: {
-        type: "string",
-      },
-    },
-  });
+  const args = parseCommandLine(process.argv.slice(2));
+
+  const root = args.root || ".";
 
   if (!(await isDirectory(root!))) {
-    console.log(makeRed(`Not a directory: ${root}`));
+    console.error(makeRed(`Not a directory: ${root}`));
     process.exit(1);
   }
 
@@ -436,7 +351,7 @@ async function main(): Promise<void> {
   const soiaConfigPath = paths.resolve(paths.join(root!, "soia.yml"));
   const soiaConfigContents = REAL_FILE_SYSTEM.readTextFile(soiaConfigPath);
   if (soiaConfigContents === undefined) {
-    console.log(makeRed(`Cannot find ${soiaConfigPath}`));
+    console.error(makeRed(`Cannot find ${soiaConfigPath}`));
     process.exit(1);
   }
 
@@ -447,78 +362,72 @@ async function main(): Promise<void> {
     if (parseResult.success) {
       soiaConfig = parseResult.data;
     } else {
-      console.log(makeRed("Invalid soia config"));
-      console.log(`  Path: ${soiaConfigPath}`);
+      console.error(makeRed("Invalid soia config"));
+      console.error(`  Path: ${soiaConfigPath}`);
       const validationError = fromZodError(parseResult.error);
-      console.log(validationError.toString());
-      process.exit(1);
-    }
-  }
-
-  if (fmt && fmt !== "fix" && fmt !== "check") {
-    console.log(
-      makeRed(
-        `Formatter mode must be one of ['fix', 'check']; actual: '${fmt}'`,
-      ),
-    );
-    process.exit(1);
-  }
-
-  if (fmt && watch) {
-    console.log(makeRed("Formatter cannot be used with watch mode"));
-    process.exit(1);
-  }
-
-  const generatorBundles: GeneratorBundle[] = await Promise.all(
-    soiaConfig.generators.map(makeGeneratorBundle),
-  );
-  // Sort for consistency.
-  generatorBundles.sort((a, b) => {
-    const aId = a.generator.id;
-    const bId = b.generator.id;
-    return aId.localeCompare(bId, "en-US");
-  });
-  // Look for duplicates.
-  for (let i = 0; i < generatorBundles.length - 1; ++i) {
-    const { id } = generatorBundles[i]!.generator;
-    if (id === generatorBundles[i + 1]!.generator.id) {
-      console.log(makeRed(`Duplicate generator: ${id}`));
+      console.error(validationError.toString());
       process.exit(1);
     }
   }
 
   const srcDir = paths.join(root!, soiaConfig.srcDir || ".");
 
-  if (fmt) {
-    // Check or fix the formatting to the .soia files in the source directory.
-    await format(srcDir, fmt as "fix" | "check");
-  } else {
-    // Run the soia code generators in watch mode or once.
-    const soiagenDir = paths.join(root!, "soiagen");
-    const soiagenDirs: SoiagenDir[] = [
-      {
-        path: soiagenDir,
-        fileRegex: new RegExp(""),
-      },
-    ];
-    for (const mirroredSoiagenDir of soiaConfig.mirroredSoiagenDirs || []) {
-      soiagenDirs.push({
-        path: paths.join(root!, mirroredSoiagenDir.path),
-        fileRegex: new RegExp(mirroredSoiagenDir.fileRegex ?? ""),
-      });
+  switch (args.kind) {
+    case "format": {
+      // Check or fix the formatting to the .soia files in the source directory.
+      await format(srcDir, args.check ? "check" : "fix");
+      break;
     }
-    checkNoOverlappingSoiagenDirs(soiagenDirs);
-    const watchModeMainLoop = new WatchModeMainLoop(
-      srcDir,
-      soiagenDirs,
-      generatorBundles,
-      !!watch,
-    );
-    if (watch) {
-      await watchModeMainLoop.start();
-    } else {
-      const success: boolean = await watchModeMainLoop.generate();
-      process.exit(success ? 0 : 1);
+    case "gen": {
+      // Run the soia code generators in watch mode or once.
+      const generatorBundles: GeneratorBundle[] = await Promise.all(
+        soiaConfig.generators.map((config) =>
+          makeGeneratorBundle(config, root!),
+        ),
+      );
+      // Sort for consistency.
+      generatorBundles.sort((a, b) => {
+        const aId = a.generator.id;
+        const bId = b.generator.id;
+        return aId.localeCompare(bId, "en-US");
+      });
+      // Look for duplicates.
+      for (let i = 0; i < generatorBundles.length - 1; ++i) {
+        const { id } = generatorBundles[i]!.generator;
+        if (id === generatorBundles[i + 1]!.generator.id) {
+          console.error(makeRed(`Duplicate generator: ${id}`));
+          process.exit(1);
+        }
+      }
+      const watch = !!args.watch;
+      const watchModeMainLoop = new WatchModeMainLoop(
+        srcDir,
+        generatorBundles,
+        watch,
+      );
+      if (watch) {
+        await watchModeMainLoop.start();
+      } else {
+        const success: boolean = await watchModeMainLoop.generate();
+        process.exit(success ? 0 : 1);
+      }
+      break;
+    }
+    case "init": {
+      // TODO
+      break;
+    }
+    case "snapshot": {
+      takeSnapshot({
+        rootDir: root!,
+        srcDir: srcDir,
+        check: args.check ?? false,
+      });
+      break;
+    }
+    case "help":
+    case "error": {
+      break;
     }
   }
 }
