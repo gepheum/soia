@@ -42,8 +42,9 @@ export async function takeSnapshot(args: {
     });
     process.exit(1);
   }
-  const newSnapshot = makeSnapshot(newModuleSet, new Date());
-  if (sameModules(newSnapshot, makeSnapshot(oldModuleSet, new Date()))) {
+  const now = new Date();
+  const newSnapshot = makeSnapshot(newModuleSet, now);
+  if (sameModules(newSnapshot, makeSnapshot(oldModuleSet, now))) {
     console.log("No changes detected since last snapshot.");
     return;
   }
@@ -116,14 +117,15 @@ function makeSnapshot(moduleSet: ModuleSet, now: Date): Snapshot {
     modules[module.path] = module.sourceCode;
   }
   return {
+    readMe: "DO NOT EDIT. To update, run: npx skir snapshot",
     lastChange: now.toISOString(),
-    modules: modules,
+    modules,
   };
 }
 
 function sameModules(a: Snapshot, b: Snapshot): boolean {
   return (
-    Object.keys(a.modules).length === Object.keys(b.modules).length ||
+    Object.keys(a.modules).length === Object.keys(b.modules).length &&
     Object.entries(a.modules).every(([path, sourceCode]) => {
       return sourceCode === b.modules[path];
     })
@@ -131,6 +133,7 @@ function sameModules(a: Snapshot, b: Snapshot): boolean {
 }
 
 interface Snapshot {
+  readMe: string;
   lastChange: string;
   modules: { [path: string]: string };
 }

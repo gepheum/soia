@@ -50,7 +50,14 @@ export type BreakingChange =
       reintroducedAs: Token;
     }
   | {
-      kind: "enum-variant-kind-change";
+      kind: "missing-variant";
+      record: BeforeAfter<RecordLocation>;
+      enumEpression: BeforeAfter<Expression>;
+      variantName: Token;
+      number: number;
+    }
+  | {
+      kind: "variant-kind-change";
       record: BeforeAfter<RecordLocation>;
       enumEpression: BeforeAfter<Expression>;
       variantName: BeforeAfter<Token>;
@@ -210,9 +217,21 @@ class BackwardCompatibilityChecker {
         });
       }
     }
+    const removedNumbersAfter = new Set<number>(
+      record.after.record.removedNumbers,
+    );
     for (const fieldBefore of record.before.record.fields) {
       const fieldAfter = numberToFieldAfter.get(fieldBefore.number);
       if (fieldAfter === undefined) {
+        if (!removedNumbersAfter.has(fieldBefore.number)) {
+          this.pushBreakingChange({
+            kind: "missing-variant",
+            record,
+            enumEpression: recordExpression,
+            variantName: fieldBefore.name,
+            number: fieldBefore.number,
+          });
+        }
         continue;
       }
       if (fieldBefore.type && fieldAfter.type) {
@@ -249,7 +268,7 @@ class BackwardCompatibilityChecker {
         );
       } else if (fieldBefore.type || fieldAfter.type) {
         this.pushBreakingChange({
-          kind: "enum-variant-kind-change",
+          kind: "variant-kind-change",
           record,
           enumEpression: recordExpression,
           variantName: {
@@ -362,7 +381,7 @@ class BackwardCompatibilityChecker {
   private readonly seenRecordKeys = new Set<string>();
 }
 
-function getTokenForBreakingChange(
+export function getTokenForBreakingChange(
   breakingChange: BreakingChange,
 ): Token | null {
   switch (breakingChange.kind) {
@@ -371,7 +390,10 @@ function getTokenForBreakingChange(
     }
     case "missing-slots":
     case "record-kind-change":
-    case "enum-variant-kind-change": {
+    case "variant-kind-change": {
+      return breakingChange.record.after.record.name;
+    }
+    case "missing-variant": {
       return breakingChange.record.after.record.name;
     }
     case "removed-number-reintroduced": {
@@ -384,7 +406,7 @@ function getTokenForBreakingChange(
   }
 }
 
-export function getTokenForExpression(expression: Expression): Token {
+function getTokenForExpression(expression: Expression): Token {
   switch (expression.kind) {
     case "item": {
       return getTokenForExpression(expression.arrayExpression);

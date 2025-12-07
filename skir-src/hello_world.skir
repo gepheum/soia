@@ -1,4 +1,13 @@
-struct Point {
-  x: int32;
-  y: int32;
+import Weekday from "foo.skir";
+
+struct Point(100) {
+  x: int64 = 4;
+  bar: [Bar]? = 5;
+  removed 0..3;
 }
+
+struct Bar {
+  weekday: Weekday = 0;
+}
+
+method Foo(string): bool = 400;

@@ -42,7 +42,11 @@ export class ModuleSet {
   }
 
   static fromMap(map: ReadonlyMap<string, string>): ModuleSet {
-    return new ModuleSet(new MapBasedModuleParser(map));
+    const result = new ModuleSet(new MapBasedModuleParser(map));
+    for (const modulePath of map.keys()) {
+      result.parseAndResolve(modulePath);
+    }
+    return result;
   }
 
   constructor(private readonly moduleParser: ModuleParser) {}

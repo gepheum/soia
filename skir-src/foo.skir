@@ -1,0 +1,10 @@
+struct Foo {
+
+}
+
+enum Weekday {
+  MONDAY = 1;
+  TUESDAY = 2;
+  WEDNESDAY = 4;
+  foo: bool = 3;
+}

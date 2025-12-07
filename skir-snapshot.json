@@ -1,0 +1,8 @@
+{
+  "readMe": "DO NOT EDIT. To update, run: npx skir snapshot",
+  "lastChange": "2025-12-07T21:54:08.525Z",
+  "modules": {
+    "foo.skir": "struct Foo {\n\n}\n\nenum Weekday {\n  MONDAY = 1;\n  TUESDAY = 2;\n  WEDNESDAY = 4;\n  removed 3;\n}\n",
+    "hello_world.skir": "import Weekday from \"foo.skir\";\n\nstruct Point(100) {\n  x: int64 = 4;\n  bar: [Bar]? = 5;\n  removed 0..3;\n}\n\nstruct Bar {\n  weekday: Weekday = 0;\n}\n\nmethod Foo(string): bool = 400;\n"
+  }
+}

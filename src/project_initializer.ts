@@ -29,7 +29,8 @@ export function initializeProject(rootDir: string): void {
   console.log(`Done. Please edit: ${skirYmlPath}`);
 }
 
-const SKIR_YML_CONTENT = `srcDir: skir-src`;
+const SKIR_YML_CONTENT = `srcDir: skir-src
+`;
 
 const HELLO_WORLD_SKIR_CONTENT = `struct Point {
   x: int32;

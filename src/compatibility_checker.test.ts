@@ -355,6 +355,63 @@ describe("compatibility checker", () => {
     ]);
   });
 
+  it("missing-variant", () => {
+    expect(
+      doCheckBackwardCompatibility({
+        before: `
+          enum Status(100) {
+            OK;
+            error: string;
+          }
+        `,
+        after: `
+          enum Status(100) {
+            OK = 1;
+            error: string = 3;
+          }
+        `,
+      }),
+    ).toMatch([
+      {
+        kind: "missing-variant",
+        record: {
+          before: {
+            record: {
+              name: {
+                text: "Status",
+              },
+            },
+          },
+          after: {
+            record: {
+              name: {
+                text: "Status",
+              },
+            },
+          },
+        },
+        enumEpression: {
+          before: {
+            kind: "record",
+            recordName: {
+              text: "Status",
+            },
+          },
+          after: {
+            kind: "record",
+            recordName: {
+              text: "Status",
+            },
+          },
+        },
+        variantName: {
+          text: "error",
+        },
+        number: 2,
+      },
+    ]);
+  });
+
   it("enum variant kind change", () => {
     expect(
       doCheckBackwardCompatibility({
@@ -371,7 +428,7 @@ describe("compatibility checker", () => {
       }),
     ).toMatch([
       {
-        kind: "enum-variant-kind-change",
+        kind: "variant-kind-change",
         enumEpression: {
           before: {
             kind: "record",

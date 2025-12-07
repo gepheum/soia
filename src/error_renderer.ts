@@ -3,7 +3,7 @@ import {
   BeforeAfter,
   BreakingChange,
   Expression,
-  getTokenForExpression,
+  getTokenForBreakingChange,
 } from "./compatibility_checker.js";
 import { ModuleSet } from "./module_set.js";
 import { RecordLocation, ResolvedType, SkirError, Token } from "./types.js";
@@ -59,10 +59,12 @@ export function renderBreakingChanges(
   for (let i = 0; i < breakingChanges.length && i < MAX; ++i) {
     const breakingChange = breakingChanges[i]!;
     console.error(formatBreakingChange(breakingChange, moduleSet));
+    console.error();
   }
-  // Count the number of distinct modules with errors.
-  if (breakingChanges.length) {
-    console.error(`Found ${breakingChanges.length} errors\n`);
+  const numBreakingChanges = breakingChanges.length;
+  const s = numBreakingChanges === 1 ? "" : "s";
+  if (numBreakingChanges) {
+    console.error(`Found ${numBreakingChanges} breaking change${s}\n`);
   }
 }
 
@@ -70,37 +72,37 @@ function formatBreakingChange(
   breakingChange: BreakingChange,
   moduleSet: BeforeAfter<ModuleSet>,
 ): string {
+  const token = getTokenForBreakingChange(breakingChange);
+  const locationPrefix = token ? formatLocation(token) + " - " : "";
   switch (breakingChange.kind) {
     case "illegal-type-change": {
       const { expression, type } = breakingChange;
-      const location = formatLocation(getTokenForExpression(expression.after));
       const errorHeader = makeRed("Illegal type change");
       return [
-        `${location} - ${errorHeader}`,
-        "  [Last snapshot]",
-        `    Expression: ${formatExpression(expression.before)}`,
-        `          Type: ${formatType(type.before, moduleSet.before)}`,
-        "  [Now]",
-        `    Expression: ${formatExpression(expression.after)}`,
-        `          Type: ${formatType(type.after, moduleSet.after)}`,
+        `${locationPrefix}${errorHeader}\n`,
+        "  [Last snapshot]\n",
+        `    ${makeGray("Expression:")} ${formatExpression(expression.before)}`,
+        `          ${makeGray("Type:")} ${formatType(type.before, moduleSet.before)}\n`,
+        "  [Now]\n",
+        `    ${makeGray("Expression:")} ${formatExpression(expression.after)}`,
+        `          ${makeGray("Type:")} ${formatType(type.after, moduleSet.after)}`,
       ].join("\n");
     }
     case "missing-slots": {
       const { missingRangeEnd, missingRangeStart, recordExpression, record } =
         breakingChange;
-      const location = formatLocation(record.after.record.name);
       const errorHeader = makeRed("Missing slots in record");
       return [
-        `${location} - ${errorHeader}`,
-        "  [Last snapshot]",
-        `    Expression: ${formatExpression(recordExpression.before)}`,
-        `        Record: ${record.before.record.name.text}`,
-        `         Slots: ${missingRangeEnd}`,
-        "  [Now]",
-        `    Expression: ${formatExpression(recordExpression.after)}`,
-        `        Record: ${record.after.record.name.text}`,
-        `         Slots: ${missingRangeStart}`,
-        "  Fix: mark the field numbers as removed",
+        `${locationPrefix}${errorHeader}\n`,
+        "  [Last snapshot]\n",
+        `    ${makeGray("Expression:")} ${formatExpression(recordExpression.before)}`,
+        `        ${makeGray("Record:")} ${record.before.record.name.text}`,
+        `         ${makeGray("Slots:")} ${missingRangeEnd}\n`,
+        "  [Now]\n",
+        `    ${makeGray("Expression:")} ${formatExpression(recordExpression.after)}`,
+        `        ${makeGray("Record:")} ${record.after.record.name.text}`,
+        `         ${makeGray("Slots:")} ${missingRangeStart}\n`,
+        `  ${makeGray("Fix:")} mark the field numbers as removed`,
       ].join("\n");
     }
     case "missing-record": {
@@ -109,12 +111,12 @@ function formatBreakingChange(
         record.record.recordType,
         " ",
         getQualifiedName(record),
-        `(${recordNumber})`,
       ].join("");
       return [
-        makeRed("Missing record"),
-        "  [Last snapshot]",
-        `        Record: ${recordDefinition}`,
+        `${makeRed("Missing record")}\n`,
+        "  [Last snapshot]\n",
+        `    ${makeGray("Record:")} ${recordDefinition}`,
+        `    ${makeGray("Number:")} ${recordNumber}`,
       ].join("\n");
     }
     case "missing-method": {
@@ -126,67 +128,84 @@ function formatBreakingChange(
         formatType(method.requestType!, moduleSet.before),
         "): ",
         formatType(method.responseType!, moduleSet.before),
-        ` = ${method.number}`,
       ].join("");
       return [
-        makeRed("Missing method"),
-        "  [Last snapshot]",
-        `        Method: ${methodDefinition}`,
+        `${makeRed("Missing method")}\n`,
+        "  [Last snapshot]\n",
+        `    ${makeGray("Method:")} ${methodDefinition}`,
+        `    ${makeGray("Number:")} ${method.number}`,
       ].join("\n");
     }
-    case "enum-variant-kind-change": {
-      const { record, variantName, number } = breakingChange;
-      const location = formatLocation(record.after.record.name);
+    case "variant-kind-change": {
+      const { enumEpression, number, record, variantName } = breakingChange;
       const errorHeader = makeRed("Illegal variant kind change");
       const enumName = map(record, getQualifiedName);
       const variantKind = map(variantName, (vn) => {
         caseMatches(vn.text, "lower_underscore") ? "wrapper" : "constant";
       });
       return [
-        `${location} - ${errorHeader}`,
-        "  [Last snapshot]",
-        `       Enum: ${enumName.before}`,
-        `    Variant: ${variantName.before.text} = ${number}`,
-        `       Kind: ${variantKind.before}`,
-        "  [Now]",
-        `       Enum: ${enumName.after}`,
-        `    Variant: ${variantName.after.text} = ${number}`,
-        `       Kind: ${variantKind.after}`,
+        `${locationPrefix}${errorHeader}\n`,
+        "  [Last snapshot]\n",
+        `    ${makeGray("Expression:")} ${formatExpression(enumEpression.before)}`,
+        `          ${makeGray("Enum:")} ${enumName.before}`,
+        `       ${makeGray("Variant:")} ${variantName.before.text}`,
+        `        ${makeGray("Number:")} ${number}`,
+        `          ${makeGray("Kind:")} ${variantKind.before}\n`,
+        "  [Now]\n",
+        `    ${makeGray("Expression:")} ${formatExpression(enumEpression.after)}`,
+        `          ${makeGray("Enum:")} ${enumName.after}`,
+        `       ${makeGray("Variant:")} ${variantName.after.text}`,
+        `        ${makeGray("Number:")} ${number}`,
+        `          ${makeGray("Kind:")} ${variantKind.after}`,
+      ].join("\n");
+    }
+    case "missing-variant": {
+      const { enumEpression, number, record, variantName } = breakingChange;
+      const errorHeader = makeRed("Missing variant");
+      const enumName = map(record, getQualifiedName);
+      return [
+        `${locationPrefix}${errorHeader}\n`,
+        "  [Last snapshot]\n",
+        `    ${makeGray("Expression:")} ${formatExpression(enumEpression.before)}`,
+        `          ${makeGray("Enum:")} ${enumName.before}`,
+        `       ${makeGray("Variant:")} ${variantName.text}`,
+        `        ${makeGray("Number:")} ${number}\n`,
+        "  [Now]\n",
+        `    ${makeGray("Expression:")} ${formatExpression(enumEpression.after)}`,
+        `          ${makeGray("Enum:")} ${enumName.after}`,
       ].join("\n");
     }
     case "record-kind-change": {
       const { record, recordExpression, recordType } = breakingChange;
-      const location = formatLocation(record.after.record.name);
       const errorHeader = makeRed("Record kind change");
       return [
-        `${location} - ${errorHeader}`,
-        "  [Last snapshot]",
-        `    Expression: ${formatExpression(recordExpression.before)}`,
-        `        Record: ${record.before.record.name.text}`,
-        `          Kind: ${recordType.before}`,
-        "  [Now]",
-        `    Expression: ${formatExpression(recordExpression.after)}`,
-        `        Record: ${record.after.record.name.text}`,
-        `          Kind: ${recordType.after}`,
+        `${locationPrefix}${errorHeader}\n`,
+        "  [Last snapshot]\n",
+        `    ${makeGray("Expression:")} ${formatExpression(recordExpression.before)}`,
+        `        ${makeGray("Record:")} ${record.before.record.name.text}`,
+        `          ${makeGray("Kind:")} ${recordType.before}\n`,
+        "  [Now]\n",
+        `    ${makeGray("Expression:")} ${formatExpression(recordExpression.after)}`,
+        `        ${makeGray("Record:")} ${record.after.record.name.text}`,
+        `          ${makeGray("Kind:")} ${recordType.after}`,
       ].join("\n");
     }
     case "removed-number-reintroduced": {
       const { record, recordExpression, reintroducedAs, removedNumber } =
         breakingChange;
-      const location = formatLocation(record.after.record.name);
       const errorHeader = makeRed("Removed number reintroduced");
       return [
-        `${location} - ${errorHeader}`,
-        "  [Last snapshot]",
-        `    Expression: ${formatExpression(recordExpression.before)}`,
-        `        Record: ${record.before.record.name.text}`,
-        `       Removed: ${removedNumber}`,
-        "  [Now]",
-        `    Expression: ${formatExpression(recordExpression.after)}`,
-        `        Record: ${record.after.record.name.text}`,
+        `${locationPrefix}${errorHeader}\n`,
+        "  [Last snapshot]\n",
+        `    ${makeGray("Expression:")} ${formatExpression(recordExpression.before)}`,
+        `        ${makeGray("Record:")} ${record.before.record.name.text}`,
+        `       ${makeGray("Removed:")} ${removedNumber}\n`,
+        "  [Now]\n",
+        `    ${makeGray("Expression:")} ${formatExpression(recordExpression.after)}`,
+        `        ${makeGray("Record:")} ${record.after.record.name.text}`,
         record.after.record.recordType === "struct"
-          ? `         Field: ${reintroducedAs.text}`
-          : `       Variant: ${reintroducedAs.text}`,
+          ? `         ${makeGray("Field:")} ${reintroducedAs.text}`
+          : `       ${makeGray("Variant:")} ${reintroducedAs.text}`,
       ].join("\n");
     }
   }
