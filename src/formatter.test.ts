@@ -4,7 +4,7 @@ import { formatModule } from "./formatter.js";
 import { tokenizeModule } from "./tokenizer.js";
 
 const UNFORMATTED_MODULE = `
-/* module */ import A from 'module.soia';  import * as foo from 'module.soia';
+/* module */ import A from 'module.skir';  import * as foo from 'module.skir';
 
   struct Empty1 { }
 struct Empty2 { //
@@ -74,8 +74,8 @@ struct S { // a
 `;
 
 const EXPECTED_FORMATTED_MODULE = `/* module */
-import A from "module.soia";
-import * as foo from "module.soia";
+import A from "module.skir";
+import * as foo from "module.skir";
 
 struct Empty1 {}
 struct Empty2 {  //

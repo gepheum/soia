@@ -4,13 +4,13 @@ export const GeneratorConfig = z
   .object({
     mod: z.string(),
     config: z.any(),
-    soiagenDir: z
+    skiroutDir: z
       .union([
         z
           .string()
-          .regex(/^.*\/soiagen$/)
+          .regex(/^.*\/skirout$/)
           .optional(),
-        z.array(z.string().regex(/^.*\/soiagen$/)),
+        z.array(z.string().regex(/^.*\/skirout$/)),
       ])
       .optional(),
   })
@@ -18,11 +18,11 @@ export const GeneratorConfig = z
 
 export type GeneratorConfig = z.infer<typeof GeneratorConfig>;
 
-export const SoiaConfig = z
+export const SkirConfig = z
   .object({
     generators: z.array(GeneratorConfig),
     srcDir: z.string().optional(),
   })
   .strict();
 
-export type SoiaConfig = z.infer<typeof SoiaConfig>;
+export type SkirConfig = z.infer<typeof SkirConfig>;

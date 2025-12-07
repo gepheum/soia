@@ -1,4 +1,4 @@
-name: Soia code generation
+name: Skir code generation
 
 inputs:
   node-version:
@@ -27,7 +27,7 @@ runs:
       shell: bash
       working-directory: ${{ inputs.working-directory }}
 
-    - name: Run Soia code generation
-      run: npm run soiac
+    - name: Run Skir code generation
+      run: npm run skir gen
       shell: bash
       working-directory: ${{ inputs.working-directory }}

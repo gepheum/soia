@@ -29,7 +29,7 @@ import type {
   ResolvedRecordRef,
   ResolvedType,
   Result,
-  SoiaError,
+  SkirError,
   Token,
   UnresolvedRecordRef,
   UnresolvedType,
@@ -69,7 +69,7 @@ export class ModuleSet {
     modulePath: string,
     inProgressSet: Set<string>,
   ): Result<Module | null> {
-    const errors: SoiaError[] = [];
+    const errors: SkirError[] = [];
 
     let module: MutableModule;
     {
@@ -804,7 +804,7 @@ export class ModuleSet {
   private readonly mutableResolvedModules: MutableModule[] = [];
   private readonly numberToRecord = new Map<number, RecordKey>();
   private readonly numberToMethod = new Map<number, Method>();
-  private readonly mutableErrors: SoiaError[] = [];
+  private readonly mutableErrors: SkirError[] = [];
 
   get recordMap(): ReadonlyMap<RecordKey, RecordLocation> {
     return this.mutableRecordMap;
@@ -826,7 +826,7 @@ export class ModuleSet {
     return this.numberToMethod.get(methodNumber);
   }
 
-  get errors(): readonly SoiaError[] {
+  get errors(): readonly SkirError[] {
     return this.mutableErrors;
   }
 }
@@ -982,11 +982,11 @@ class TypeResolver {
       start = module;
     }
 
-    const makeNotARecordError = (name: Token): SoiaError => ({
+    const makeNotARecordError = (name: Token): SkirError => ({
       token: name,
       message: "Does not refer to a struct or an enum",
     });
-    const makeCannotFindNameError = (name: Token): SoiaError => ({
+    const makeCannotFindNameError = (name: Token): SkirError => ({
       token: name,
       message: `Cannot find name '${name.text}'`,
     });
@@ -1006,7 +1006,7 @@ class TypeResolver {
       } else if (newIt.kind === "record") {
         it = newIt;
       } else if (newIt.kind === "import" || newIt.kind === "import-alias") {
-        const cannotReimportError = (): SoiaError => ({
+        const cannotReimportError = (): SkirError => ({
           token: namePart,
           message: `Cannot reimport imported name '${name}'`,
         });

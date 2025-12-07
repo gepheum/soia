@@ -6,7 +6,7 @@ import Watcher from "watcher";
 import * as yaml from "yaml";
 import { fromZodError } from "zod-validation-error";
 import { parseCommandLine } from "./command_line_parser.js";
-import { GeneratorConfig, SoiaConfig } from "./config.js";
+import { GeneratorConfig, SkirConfig } from "./config.js";
 import {
   makeGray,
   makeGreen,
@@ -24,8 +24,8 @@ import type { CodeGenerator } from "./types.js";
 interface GeneratorBundle<Config = unknown> {
   generator: CodeGenerator<Config>;
   config: Config;
-  /// Absolute paths to the soiagen directories.
-  soiagenDirs: string[];
+  /// Absolute paths to the skirout directories.
+  skiroutDirs: string[];
 }
 
 async function makeGeneratorBundle(
@@ -46,30 +46,30 @@ async function makeGeneratorBundle(
     console.error(validationError.toString());
     process.exit(1);
   }
-  let soiagenDirs: string[];
-  if (config.soiagenDir === undefined) {
-    soiagenDirs = ["soiagen"];
-  } else if (typeof config.soiagenDir === "string") {
-    soiagenDirs = [config.soiagenDir];
+  let skiroutDirs: string[];
+  if (config.skiroutDir === undefined) {
+    skiroutDirs = ["skirout"];
+  } else if (typeof config.skiroutDir === "string") {
+    skiroutDirs = [config.skiroutDir];
   } else {
-    soiagenDirs = config.soiagenDir;
+    skiroutDirs = config.skiroutDir;
   }
-  soiagenDirs = soiagenDirs.map((d) => paths.join(root, d));
+  skiroutDirs = skiroutDirs.map((d) => paths.join(root, d));
   return {
     generator,
     config: parsedConfig.data,
-    soiagenDirs,
+    skiroutDirs: skiroutDirs,
   };
 }
 
 interface WriteBatch {
-  /** Key: path to a generated file relative to the soiagen dir. */
+  /** Key: path to a generated file relative to the skirout dir. */
   readonly pathToFile: ReadonlyMap<string, CodeGenerator.OutputFile>;
   readonly writeTime: Date;
 }
 
 class WatchModeMainLoop {
-  private readonly soiagenDirs = new Set<string>();
+  private readonly skiroutDirs = new Set<string>();
 
   constructor(
     private readonly srcDir: string,
@@ -77,11 +77,11 @@ class WatchModeMainLoop {
     private readonly watchModeOn: boolean,
   ) {
     for (const generatorBundle of generatorBundles) {
-      for (const soiagenDir of generatorBundle.soiagenDirs) {
-        this.soiagenDirs.add(soiagenDir);
+      for (const skiroutDir of generatorBundle.skiroutDirs) {
+        this.skiroutDirs.add(skiroutDir);
       }
     }
-    checkNoOverlappingSoiagenDirs([...this.soiagenDirs]);
+    checkNoOverlappingSkiroutDirs([...this.skiroutDirs]);
   }
 
   async start(): Promise<void> {
@@ -93,8 +93,8 @@ class WatchModeMainLoop {
     });
     watcher.on("all", (_, targetPath, targetPathNext) => {
       if (
-        targetPath.endsWith(".soia") ||
-        (targetPathNext && targetPathNext.endsWith(".soia"))
+        targetPath.endsWith(".skir") ||
+        (targetPathNext && targetPathNext.endsWith(".skir"))
       ) {
         this.triggerGeneration();
       }
@@ -142,7 +142,7 @@ class WatchModeMainLoop {
           const successMessage = `Generation succeeded at ${date}`;
           console.log(makeGreen(successMessage));
           console.log("\nWaiting for changes in files matching:");
-          const glob = paths.resolve(paths.join(this.srcDir, "/**/*.soia"));
+          const glob = paths.resolve(paths.join(this.srcDir, "/**/*.skir"));
           console.log(`  ${glob}`);
         }
         return true;
@@ -156,14 +156,14 @@ class WatchModeMainLoop {
   }
 
   private async doGenerate(moduleSet: ModuleSet): Promise<void> {
-    const { soiagenDirs } = this;
+    const { skiroutDirs } = this;
     const preExistingAbsolutePaths = new Set<string>();
-    for (const soiagenDir of soiagenDirs) {
-      await fs.mkdir(soiagenDir, { recursive: true });
+    for (const skiroutDir of skiroutDirs) {
+      await fs.mkdir(skiroutDir, { recursive: true });
 
-      // Collect all the files in all the soiagen dirs.
+      // Collect all the files in all the skirout dirs.
       (
-        await glob(paths.join(soiagenDir, "**/*"), { withFileTypes: true })
+        await glob(paths.join(skiroutDir, "**/*"), { withFileTypes: true })
       ).forEach((p) => preExistingAbsolutePaths.add(p.fullpath()));
     }
 
@@ -182,7 +182,7 @@ class WatchModeMainLoop {
         }
         pathToFile.set(path, file);
         pathToGenerator.set(path, generator);
-        for (const soiagenDir of generator.soiagenDirs) {
+        for (const skiroutDir of generator.skiroutDirs) {
           // Remove this path and all its parents from the set of paths to remove
           // at the end of the generation.
           for (
@@ -191,7 +191,7 @@ class WatchModeMainLoop {
             pathToKeep = paths.dirname(pathToKeep)
           ) {
             preExistingAbsolutePaths.delete(
-              paths.resolve(paths.join(soiagenDir, pathToKeep)),
+              paths.resolve(paths.join(skiroutDir, pathToKeep)),
             );
           }
         }
@@ -204,8 +204,8 @@ class WatchModeMainLoop {
       Array.from(pathToFile).map(async ([p, newFile]) => {
         const oldFile = lastWriteBatch.pathToFile.get(p);
         const generator = pathToGenerator.get(p)!;
-        for (const soiagenDir of generator.soiagenDirs) {
-          const fsPath = paths.join(soiagenDir, p);
+        for (const skiroutDir of generator.skiroutDirs) {
+          const fsPath = paths.join(skiroutDir, p);
           if (oldFile?.code === newFile.code) {
             const mtime = (await fs.stat(fsPath)).mtime;
             if (
@@ -257,17 +257,17 @@ async function isDirectory(path: string): Promise<boolean> {
   }
 }
 
-function checkNoOverlappingSoiagenDirs(soiagenDirs: readonly string[]): void {
-  for (let i = 0; i < soiagenDirs.length; ++i) {
-    for (let j = i + 1; j < soiagenDirs.length; ++j) {
-      const dirA = paths.normalize(soiagenDirs[i]!);
-      const dirB = paths.normalize(soiagenDirs[j]!);
+function checkNoOverlappingSkiroutDirs(skiroutDirs: readonly string[]): void {
+  for (let i = 0; i < skiroutDirs.length; ++i) {
+    for (let j = i + 1; j < skiroutDirs.length; ++j) {
+      const dirA = paths.normalize(skiroutDirs[i]!);
+      const dirB = paths.normalize(skiroutDirs[j]!);
 
       if (
         dirA.startsWith(dirB + paths.sep) ||
         dirB.startsWith(dirA + paths.sep)
       ) {
-        throw new Error(`Overlapping soiagen directories: ${dirA} and ${dirB}`);
+        throw new Error(`Overlapping skirout directories: ${dirA} and ${dirB}`);
       }
     }
   }
@@ -279,17 +279,17 @@ interface ModuleFormatResult {
 }
 
 async function format(root: string, mode: "fix" | "check"): Promise<void> {
-  const soiaFiles = await glob(paths.join(root, "**/*.soia"), {
+  const skirFiles = await glob(paths.join(root, "**/*.skir"), {
     withFileTypes: true,
   });
   const pathToFormatResult = new Map<string, ModuleFormatResult>();
-  for await (const soiaFile of soiaFiles) {
-    if (!soiaFile.isFile) {
+  for await (const skirFile of skirFiles) {
+    if (!skirFile.isFile) {
       continue;
     }
-    const unformattedCode = REAL_FILE_SYSTEM.readTextFile(soiaFile.fullpath());
+    const unformattedCode = REAL_FILE_SYSTEM.readTextFile(skirFile.fullpath());
     if (unformattedCode === undefined) {
-      throw new Error(`Cannot read ${soiaFile.fullpath()}`);
+      throw new Error(`Cannot read ${skirFile.fullpath()}`);
     }
     const tokens = tokenizeModule(unformattedCode, "", "keep-comments");
     if (tokens.errors.length) {
@@ -297,7 +297,7 @@ async function format(root: string, mode: "fix" | "check"): Promise<void> {
       process.exit(1);
     }
     const formattedCode = formatModule(tokens.result);
-    pathToFormatResult.set(soiaFile.fullpath(), {
+    pathToFormatResult.set(skirFile.fullpath(), {
       formattedCode: formattedCode,
       alreadyFormatted: formattedCode === unformattedCode,
     });
@@ -348,40 +348,40 @@ async function main(): Promise<void> {
   }
 
   // Use an absolute path to make error messages more helpful.
-  const soiaConfigPath = paths.resolve(paths.join(root!, "soia.yml"));
-  const soiaConfigContents = REAL_FILE_SYSTEM.readTextFile(soiaConfigPath);
-  if (soiaConfigContents === undefined) {
-    console.error(makeRed(`Cannot find ${soiaConfigPath}`));
+  const skirConfigPath = paths.resolve(paths.join(root!, "skir.yml"));
+  const skirConfigContents = REAL_FILE_SYSTEM.readTextFile(skirConfigPath);
+  if (skirConfigContents === undefined) {
+    console.error(makeRed(`Cannot find ${skirConfigPath}`));
     process.exit(1);
   }
 
-  let soiaConfig: SoiaConfig;
+  let skirConfig: SkirConfig;
   {
     // `yaml.parse` fail with a helpful error message, no need to add context.
-    const parseResult = SoiaConfig.safeParse(yaml.parse(soiaConfigContents));
+    const parseResult = SkirConfig.safeParse(yaml.parse(skirConfigContents));
     if (parseResult.success) {
-      soiaConfig = parseResult.data;
+      skirConfig = parseResult.data;
     } else {
-      console.error(makeRed("Invalid soia config"));
-      console.error(`  Path: ${soiaConfigPath}`);
+      console.error(makeRed("Invalid skir config"));
+      console.error(`  Path: ${skirConfigPath}`);
       const validationError = fromZodError(parseResult.error);
       console.error(validationError.toString());
       process.exit(1);
     }
   }
 
-  const srcDir = paths.join(root!, soiaConfig.srcDir || ".");
+  const srcDir = paths.join(root!, skirConfig.srcDir || ".");
 
   switch (args.kind) {
     case "format": {
-      // Check or fix the formatting to the .soia files in the source directory.
+      // Check or fix the formatting to the .skir files in the source directory.
       await format(srcDir, args.check ? "check" : "fix");
       break;
     }
     case "gen": {
-      // Run the soia code generators in watch mode or once.
+      // Run the skir code generators in watch mode or once.
       const generatorBundles: GeneratorBundle[] = await Promise.all(
-        soiaConfig.generators.map((config) =>
+        skirConfig.generators.map((config) =>
           makeGeneratorBundle(config, root!),
         ),
       );
@@ -421,7 +421,7 @@ async function main(): Promise<void> {
       takeSnapshot({
         rootDir: root!,
         srcDir: srcDir,
-        check: args.check ?? false,
+        check: !!args.check,
       });
       break;
     }

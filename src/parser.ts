@@ -21,7 +21,7 @@ import type {
   Record,
   Removed,
   Result,
-  SoiaError,
+  SkirError,
   Token,
   UnresolvedArrayType,
   UnresolvedRecordRef,
@@ -34,7 +34,7 @@ export function parseModule(
   modulePath: string,
   sourceCode: string,
 ): Result<MutableModule> {
-  const errors: SoiaError[] = [];
+  const errors: SkirError[] = [];
   const it = new TokenIterator(tokens, errors);
   const declarations = parseDeclarations(it, "module");
   it.expectThenMove([""]);

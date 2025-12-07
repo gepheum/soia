@@ -9,7 +9,7 @@ import type { z } from "zod";
 // -----------------------------------------------------------------------------
 
 /**
- * Generates code in one programming language from a set of parsed Soia modules.
+ * Generates code in one programming language from a set of parsed Skir modules.
  */
 export interface CodeGenerator<Config = unknown> {
   readonly id: string;
@@ -70,7 +70,7 @@ export type Casing =
 // -----------------------------------------------------------------------------
 
 /** A user error in a module. */
-export type SoiaError =
+export type SkirError =
   | {
       readonly token: Token;
       /** Convention: starts with a capital letter. */
@@ -87,7 +87,7 @@ export type SoiaError =
     };
 
 export interface ErrorSink {
-  push(error: SoiaError): void;
+  push(error: SkirError): void;
 }
 
 /**
@@ -96,7 +96,7 @@ export interface ErrorSink {
  */
 export interface Result<T> {
   readonly result: T;
-  readonly errors: readonly SoiaError[];
+  readonly errors: readonly SkirError[];
 }
 
 // -----------------------------------------------------------------------------
@@ -219,7 +219,7 @@ export interface OptionalType<Type = ResolvedType> {
 }
 
 /**
- * Result of parsing a type from a `.soia` file, without resolving the record
+ * Result of parsing a type from a `.skir` file, without resolving the record
  * references.
  */
 export type UnresolvedType =
@@ -446,7 +446,7 @@ export type Value<Mutable extends boolean = boolean> =
 
 export type MutableValue = Value<true>;
 
-/** Result of serializing a Soia value to dense JSON format. */
+/** Result of serializing a skir value to dense JSON format. */
 export type DenseJson = null | boolean | number | string | readonly DenseJson[];
 
 /** A declaration which can appear at the top-level of a module. */

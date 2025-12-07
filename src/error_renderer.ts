@@ -6,9 +6,9 @@ import {
   getTokenForExpression,
 } from "./compatibility_checker.js";
 import { ModuleSet } from "./module_set.js";
-import { RecordLocation, ResolvedType, SoiaError, Token } from "./types.js";
+import { RecordLocation, ResolvedType, SkirError, Token } from "./types.js";
 
-export function renderErrors(errors: readonly SoiaError[]): void {
+export function renderErrors(errors: readonly SkirError[]): void {
   const MAX_ERRORS = 10;
   for (let i = 0; i < errors.length && i < MAX_ERRORS; ++i) {
     const error = errors[i];
@@ -26,31 +26,7 @@ export function renderErrors(errors: readonly SoiaError[]): void {
   }
 }
 
-export function makeRed(text: string): string {
-  return `\x1b[31m${text}\x1b[0m`;
-}
-
-export function makeGreen(text: string): string {
-  return `\x1b[32m${text}\x1b[0m`;
-}
-
-export function makeGray(text: string): string {
-  return `\x1b[90m${text}\x1b[0m`;
-}
-
-export function makeCyan(text: string): string {
-  return `\x1b[36m${text}\x1b[0m`;
-}
-
-export function makeYellow(text: string): string {
-  return `\x1b[33m${text}\x1b[0m`;
-}
-
-export function makeBlackOnWhite(text: string): string {
-  return `\x1b[47m${text}\x1b[0m`;
-}
-
-export function formatError(error: SoiaError): string {
+export function formatError(error: SkirError): string {
   const { token } = error;
   const { line, colNumber } = token;
   const lineNumberStr = (line.lineNumber + 1).toString();
@@ -275,4 +251,28 @@ function map<T, U>(
     before: fn(beforeAfter.before),
     after: fn(beforeAfter.after),
   };
+}
+
+export function makeRed(text: string): string {
+  return `\x1b[31m${text}\x1b[0m`;
+}
+
+export function makeGreen(text: string): string {
+  return `\x1b[32m${text}\x1b[0m`;
+}
+
+export function makeGray(text: string): string {
+  return `\x1b[90m${text}\x1b[0m`;
+}
+
+function makeCyan(text: string): string {
+  return `\x1b[36m${text}\x1b[0m`;
+}
+
+function makeYellow(text: string): string {
+  return `\x1b[33m${text}\x1b[0m`;
+}
+
+function makeBlackOnWhite(text: string): string {
+  return `\x1b[47m${text}\x1b[0m`;
 }

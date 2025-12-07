@@ -1,14 +1,14 @@
 {
-  "name": "soiac",
-  "version": "1.0.53",
+  "name": "skir",
+  "version": "0.0.1",
   "description": "",
-  "homepage": "https://github.com/gepheum/soiac#readme",
+  "homepage": "https://github.com/gepheum/skir#readme",
   "bugs": {
-    "url": "https://github.com/gepheum/soiac/issues"
+    "url": "https://github.com/gepheum/skir/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gepheum/soiac.git"
+    "url": "git+https://github.com/gepheum/skir.git"
   },
   "license": "ISC",
   "author": "Tyler Fibonacci <gepheum@gmail.com>",
@@ -35,7 +35,7 @@
     "build": "tsc",
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
-    "soiac": "npm run build && node ./dist/compiler.js",
+    "skir": "npm run build && node ./dist/compiler.js",
     "test": "mocha",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix"

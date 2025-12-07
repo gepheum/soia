@@ -1,5 +1,5 @@
 import { unquoteAndUnescape } from "./literals.js";
-import type { CodeLine, ErrorSink, Result, SoiaError, Token } from "./types.js";
+import type { CodeLine, ErrorSink, Result, SkirError, Token } from "./types.js";
 
 /** Tokenizes the given module. */
 export function tokenizeModule(
@@ -8,7 +8,7 @@ export function tokenizeModule(
   keepComments?: "keep-comments",
 ): Result<Token[]> {
   const tokens: Token[] = [];
-  const errors: SoiaError[] = [];
+  const errors: SkirError[] = [];
 
   const lines = new Lines(code, modulePath);
 

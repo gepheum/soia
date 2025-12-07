@@ -86,7 +86,7 @@ Commands:
   gen         Generate code from Skir source files to target languages
   format      Format all .skir files in the specified directory
   snapshot    Verify compatibility by comparing current .skir files against the last snapshot
-  init        Initialize a new Skir project with a minimal soia.skir file
+  init        Initialize a new Skir project with a minimal skir.yml file
   help        Display this help message
 
 Options:

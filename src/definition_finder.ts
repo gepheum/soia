@@ -1,5 +1,5 @@
 /**
- * Utilities to help implement the jump-to-definition functionality for soia
+ * Utilities to help implement the jump-to-definition functionality for skir
  * files in IDEs.
  */
 import type { Declaration, Module, ResolvedType, Token } from "./types.js";

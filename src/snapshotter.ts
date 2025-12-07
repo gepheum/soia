@@ -20,7 +20,7 @@ export async function takeSnapshot(args: {
     renderErrors(newModuleSet.errors);
     process.exit(1);
   }
-  const snapshotPath = join(args.rootDir, "soia-snapshot.json");
+  const snapshotPath = join(args.rootDir, "skir-snapshot.json");
   const oldModuleSet = await readLastSnapshot(join(args.rootDir, snapshotPath));
   if (!(oldModuleSet instanceof ModuleSet)) {
     console.error(makeRed(`Corrupted snapshot file: ${snapshotPath}`));

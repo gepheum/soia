@@ -1,7 +1,7 @@
 import { expect } from "buckwheat";
 import { describe, it } from "mocha";
 import { capitalize, convertCase, validate } from "./casing.js";
-import type { SoiaError, Token } from "./types.js";
+import type { SkirError, Token } from "./types.js";
 
 function makeToken(text: string): Token {
   return {
@@ -20,8 +20,8 @@ function makeToken(text: string): Token {
 function doValidate(
   text: string,
   casing: "lower_underscore" | "UpperCamel" | "UPPER_UNDERSCORE",
-): SoiaError[] {
-  const errors: SoiaError[] = [];
+): SkirError[] {
+  const errors: SkirError[] = [];
   validate(makeToken(text), casing, errors);
   return errors;
 }

@@ -1,6 +1,6 @@
 import * as yaml from "yaml";
 import { fromZodError } from "zod-validation-error";
-import { SoiaConfig } from "./config.js";
+import { SkirConfig } from "./config.js";
 import { ModuleParser, ModuleSet } from "./module_set.js";
 import { parseModule } from "./parser.js";
 import { tokenizeModule } from "./tokenizer.js";
@@ -10,7 +10,7 @@ import type {
   RecordKey,
   RecordLocation,
   Result,
-  SoiaError,
+  SkirError,
 } from "./types.js";
 
 export class LanguageServerModuleSet {
@@ -20,17 +20,17 @@ export class LanguageServerModuleSet {
     this.deleteFile(uri);
     const fileType = getFileType(uri);
     switch (fileType) {
-      case "soia.yml": {
-        const workspace = this.parseSoiaConfig(content, uri);
+      case "skir.yml": {
+        const workspace = this.parseSkirConfig(content, uri);
         if (workspace) {
           this.workspaces.set(uri, workspace);
           this.reassignModulesToWorkspaces();
         }
         break;
       }
-      case "*.soia": {
+      case "*.skir": {
         const moduleWorkspace = this.findModuleWorkspace(uri);
-        const moduleBundle = this.parseSoiaModule(content, uri);
+        const moduleBundle = this.parseSkirModule(content, uri);
         this.moduleBundles.set(uri, moduleBundle);
         if (moduleWorkspace) {
           Workspace.addModule(moduleBundle, moduleWorkspace);
@@ -46,13 +46,13 @@ export class LanguageServerModuleSet {
   deleteFile(uri: string): void {
     const fileType = getFileType(uri);
     switch (fileType) {
-      case "soia.yml": {
+      case "skir.yml": {
         if (this.workspaces.delete(uri)) {
           this.reassignModulesToWorkspaces();
         }
         break;
       }
-      case "*.soia": {
+      case "*.skir": {
         const moduleBundle = this.moduleBundles.get(uri);
         if (moduleBundle) {
           Workspace.removeModule(moduleBundle);
@@ -86,31 +86,31 @@ export class LanguageServerModuleSet {
     });
   }
 
-  private parseSoiaConfig(content: string, uri: string): Workspace | null {
-    let soiaConfig: SoiaConfig;
+  private parseSkirConfig(content: string, uri: string): Workspace | null {
+    let skirConfig: SkirConfig;
     {
       // `yaml.parse` fail with a helpful error message, no need to add context.
-      const parseResult = SoiaConfig.safeParse(yaml.parse(content));
+      const parseResult = SkirConfig.safeParse(yaml.parse(content));
       if (parseResult.success) {
-        soiaConfig = parseResult.data;
+        skirConfig = parseResult.data;
       } else {
         const validationError = fromZodError(parseResult.error);
         console.error(
-          `Error parsing soia.yml at ${uri}:`,
+          `Error parsing skir.yml at ${uri}:`,
           validationError.message,
         );
         return null;
       }
     }
 
-    let rootUri = new URL(soiaConfig.srcDir || ".", uri).href;
+    let rootUri = new URL(skirConfig.srcDir || ".", uri).href;
     if (!rootUri.endsWith("/")) {
       rootUri += "/";
     }
     return new Workspace(rootUri);
   }
 
-  private parseSoiaModule(content: string, uri: string): ModuleBundle {
+  private parseSkirModule(content: string, uri: string): ModuleBundle {
     let astTree: Result<Module | null>;
     {
       const tokens = tokenizeModule(content, uri);
@@ -165,7 +165,7 @@ export class LanguageServerModuleSet {
   private readonly workspaces = new Map<string, Workspace>(); // key: file URI
 }
 
-function errorToDiagnostic(error: SoiaError): Diagnostic {
+function errorToDiagnostic(error: SkirError): Diagnostic {
   const { token, message, expected } = error;
   return {
     range: {
@@ -176,11 +176,11 @@ function errorToDiagnostic(error: SoiaError): Diagnostic {
   };
 }
 
-function getFileType(uri: string): "soia.yml" | "*.soia" | null {
-  if (uri.endsWith("/soia.yml")) {
-    return "soia.yml";
-  } else if (uri.endsWith(".soia")) {
-    return "*.soia";
+function getFileType(uri: string): "skir.yml" | "*.skir" | null {
+  if (uri.endsWith("/skir.yml")) {
+    return "skir.yml";
+  } else if (uri.endsWith(".skir")) {
+    return "*.skir";
   }
   return null;
 }
