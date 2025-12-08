@@ -37,12 +37,14 @@ export function tokenizeModule(
     if (position !== expectedPosition) {
       const line = lines.advancePosition(expectedPosition);
       const colNumber = expectedPosition - line.position;
+      const text = code.substring(expectedPosition, position);
       errors.push({
         token: {
-          text: code.substring(expectedPosition, position),
+          text,
+          originalText: text,
           position: expectedPosition,
-          line: line,
-          colNumber: colNumber,
+          line,
+          colNumber,
         },
         message: "Invalid sequence of characters",
       });
@@ -51,11 +53,12 @@ export function tokenizeModule(
 
     const line = lines.advancePosition(position);
     const colNumber = position - line.position;
-    const token = {
+    const token: Token = {
       text: group[0],
-      position: position,
-      line: line,
-      colNumber: colNumber,
+      originalText: group[0],
+      position,
+      line,
+      colNumber,
     };
 
     // Skip multiline comments.

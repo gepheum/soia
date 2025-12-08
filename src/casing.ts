@@ -14,23 +14,12 @@ export function validate(
   }
 }
 
-export function convertCase(
-  text: string,
-  source: Casing,
-  target: Casing,
-): string {
-  let words: string[];
-  switch (source) {
-    case "lowerCamel":
-    case "UpperCamel":
-      words = text.split(/(?=[A-Z])/).map((w) => w.toLowerCase());
-      break;
-    case "lower_underscore":
-      words = text.split("_");
-      break;
-    case "UPPER_UNDERSCORE":
-      words = text.split("_").map((w) => w.toLowerCase());
-      break;
+export function convertCase(text: string, target: Casing): string {
+  let words: readonly string[];
+  if (text.includes("_")) {
+    words = text.split("_").map((w) => w.toLowerCase());
+  } else {
+    words = text.split(/(?=[A-Z])/).map((w) => w.toLowerCase());
   }
   switch (target) {
     case "lowerCamel":

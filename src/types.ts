@@ -50,8 +50,15 @@ export interface CodeLine {
 
 /** A lexical token. */
 export interface Token {
-  /** Empty if the token is the special token for EOF. */
+  /**
+   * Empty if the token is the special token for EOF.
+   *
+   * In the case of the the name of a record declared inline, 'text' is the
+   * transformed name ('Foo') and 'originalText' is the original name ('foo').
+   */
   readonly text: string;
+  /** Same as 'text' unless the token is the name of an inline record. */
+  readonly originalText: string;
   /** Measured in number of characters from the start of the module. */
   readonly position: number;
   readonly line: CodeLine;
@@ -267,6 +274,11 @@ export interface MutableField<Mutable extends boolean = true> {
    *   enum I { h: H; }         // "soft"
    */
   isRecursive: false | "soft" | "hard";
+  /**
+   * Set if the type of the field is a struct declared inline:
+   *   bar: struct Bar { ... };
+   */
+  inlineRecord: Record<Mutable> | undefined;
 }
 
 /** Field of a struct or enum. */
@@ -368,6 +380,8 @@ export interface MutableMethod<Mutable extends boolean = true> {
   // In the uint32 range.
   readonly number: number;
   readonly hasExplicitNumber: boolean;
+  inlineRequestRecord: Record<Mutable> | undefined;
+  inlineResponseRecord: Record<Mutable> | undefined;
 }
 
 export type Method<Mutable extends boolean = boolean> = //

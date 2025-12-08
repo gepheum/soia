@@ -30,6 +30,7 @@ describe("tokenizer", () => {
       result: [
         {
           text: "import",
+          originalText: "import",
           position: 0,
           line: {
             lineNumber: 0,

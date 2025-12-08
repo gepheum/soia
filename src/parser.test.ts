@@ -106,6 +106,94 @@ describe("module parser", () => {
     });
   });
 
+  it("struct with inline records", () => {
+    const actualModule = parse(`
+      struct Foo {
+        bar: struct {
+          x: float32;
+          y: float32;
+        };
+      }`);
+
+    expect(actualModule).toMatch({
+      result: {
+        nameToDeclaration: {
+          Foo: {
+            nameToDeclaration: {
+              bar: {
+                number: 0,
+                unresolvedType: {
+                  nameParts: [
+                    {
+                      text: "Bar",
+                    },
+                  ],
+                },
+              },
+              Bar: {
+                name: {
+                  text: "Bar",
+                },
+                nameToDeclaration: {
+                  x: {
+                    number: 0,
+                  },
+                  y: {
+                    number: 1,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      errors: [],
+    });
+  });
+
+  it("struct inline record conflicts with nested record", () => {
+    const actualModule = parse(`
+      struct Foo {
+        bar: struct {
+          x: float32;
+          y: float32;
+        };
+        struct Bar {}
+      }`);
+
+    expect(actualModule).toMatch({
+      result: {
+        nameToDeclaration: {
+          Foo: {
+            nameToDeclaration: {
+              bar: {
+                number: 0,
+              },
+              Bar: {
+                nameToDeclaration: {
+                  x: {
+                    number: 0,
+                  },
+                  y: {
+                    number: 1,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      errors: [
+        {
+          token: {
+            text: "Bar",
+          },
+          message: "Duplicate identifier 'Bar'",
+        },
+      ],
+    });
+  });
+
   it("simple enum", () => {
     const actualModule = parse(`
       enum Enum {
@@ -443,7 +531,7 @@ describe("module parser", () => {
               lineNumber: 2,
             },
           },
-          message: 'Duplicate identifier "A"',
+          message: "Duplicate identifier 'A'",
         },
       ],
     });
@@ -508,7 +596,7 @@ describe("module parser", () => {
               lineNumber: 3,
             },
           },
-          message: 'Duplicate identifier "a"',
+          message: "Duplicate identifier 'a'",
         },
       ],
     });
@@ -931,6 +1019,105 @@ describe("module parser", () => {
     });
   });
 
+  it("method with inline records", () => {
+    const actualModule = parse(`
+      method Search(
+        struct {
+          x: int32;
+        }
+      ): struct {
+        y: int32;
+      };`);
+
+    expect(actualModule).toMatch({
+      result: {
+        kind: "module",
+        path: "path/to/module",
+        nameToDeclaration: {
+          Search: {
+            kind: "method",
+            name: {
+              text: "Search",
+            },
+            unresolvedRequestType: {
+              kind: "record",
+              nameParts: [
+                {
+                  text: "SearchRequest",
+                },
+              ],
+            },
+            unresolvedResponseType: {
+              kind: "record",
+              nameParts: [
+                {
+                  text: "SearchResponse",
+                },
+              ],
+            },
+            number: 2446226092,
+            hasExplicitNumber: false,
+          },
+          SearchRequest: {
+            name: {
+              text: "SearchRequest",
+              originalText: "Search",
+            },
+            nameToDeclaration: {
+              x: {},
+            },
+          },
+          SearchResponse: {
+            name: {
+              text: "SearchResponse",
+            },
+            nameToDeclaration: {
+              y: {},
+            },
+          },
+        },
+        methods: [
+          {
+            kind: "method",
+            name: {
+              text: "Search",
+            },
+          },
+        ],
+      },
+      errors: [],
+    });
+  });
+
+  it("method inline record conflicts with top-level declaration", () => {
+    const actualModule = parse(`
+      method Search(
+        struct {
+          x: int32;
+        }
+      ): string;
+
+      struct SearchRequest {}`);
+
+    expect(actualModule).toMatch({
+      result: {
+        kind: "module",
+        path: "path/to/module",
+        nameToDeclaration: {
+          Search: {
+            kind: "method",
+          },
+          SearchRequest: {},
+        },
+      },
+      errors: [
+        {
+          message: "Duplicate identifier 'SearchRequest'",
+        },
+      ],
+    });
+  });
+
   it("method with explicit number", () => {
     const actualModule = parse(`
       method Search(req):resp = 200;`);
@@ -1275,7 +1462,7 @@ describe("module parser", () => {
             token: {
               text: "a",
             },
-            expected: 'one of: "struct", "enum", "import", "method", "const"',
+            expected: "one of: 'struct', 'enum', 'import', 'method', 'const'",
           },
         ],
       });
@@ -1299,7 +1486,7 @@ describe("module parser", () => {
             token: {
               text: "a",
             },
-            expected: 'one of: "struct", "enum", "import", "method", "const"',
+            expected: "one of: 'struct', 'enum', 'import', 'method', 'const'",
           },
         ],
       });
@@ -1320,13 +1507,13 @@ describe("module parser", () => {
         },
         errors: [
           {
-            expected: 'one of: "struct", "enum", "import", "method", "const"',
+            expected: "one of: 'struct', 'enum', 'import', 'method', 'const'",
           },
           {
-            expected: 'one of: "struct", "enum", "import", "method", "const"',
+            expected: "one of: 'struct', 'enum', 'import', 'method', 'const'",
           },
           {
-            expected: 'one of: "struct", "enum", "import", "method", "const"',
+            expected: "one of: 'struct', 'enum', 'import', 'method', 'const'",
           },
         ],
       });
@@ -1344,7 +1531,7 @@ describe("module parser", () => {
         },
         errors: [
           {
-            expected: 'one of: "struct", "enum", "import", "method", "const"',
+            expected: "one of: 'struct', 'enum', 'import', 'method', 'const'",
           },
         ],
       });
@@ -1366,7 +1553,7 @@ describe("module parser", () => {
         },
         errors: [
           {
-            expected: '"}"',
+            expected: "'}'",
           },
         ],
       });
@@ -1388,7 +1575,7 @@ describe("module parser", () => {
         },
         errors: [
           {
-            expected: '":"',
+            expected: "':'",
           },
         ],
       });
@@ -1407,7 +1594,7 @@ describe("module parser", () => {
         },
         errors: [
           {
-            expected: 'one of: "struct", "enum", "import", "method", "const"',
+            expected: "one of: 'struct', 'enum', 'import', 'method', 'const'",
           },
         ],
       });

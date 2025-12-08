@@ -46,7 +46,7 @@ export function formatError(error: SkirError): string {
   result += "\n";
   result += makeBlackOnWhite(" ".repeat(lineNumberStr.length));
   result += " ".repeat(colNumber + 1);
-  result += makeRed("~".repeat(Math.max(token.text.length, 1)));
+  result += makeRed("~".repeat(Math.max(token.originalText.length, 1)));
   result += "\n";
   return result;
 }

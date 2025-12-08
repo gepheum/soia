@@ -30,10 +30,13 @@ describe("module set", () => {
           struct Inner(101) {}
           inner: Inner;
           zoo: other_module.Outer.Zoo;
+
+          loo_loo: struct {};
         }
 
         method GetBar(Outer.Foo): Bar;
         method GetBar2(Outer.Foo): Bar = 100;
+        method Search(enum {}): struct {};
       `,
     );
     fakeFileReader.pathToCode.set(
@@ -112,9 +115,10 @@ describe("module set", () => {
               { name: { text: "foo2" } },
               { name: { text: "inner" } },
               { name: { text: "zoo" } },
+              { name: { text: "loo_loo" } },
             ],
-            numSlots: 4,
-            numSlotsInclRemovedNumbers: 4,
+            numSlots: 5,
+            numSlotsInclRemovedNumbers: 5,
           },
           GetBar: {
             kind: "method",
@@ -141,6 +145,14 @@ describe("module set", () => {
           GetBar2: {
             number: 100,
           },
+          Search: {},
+          SearchRequest: {
+            name: {
+              text: "SearchRequest",
+              originalText: "Search",
+            },
+          },
+          SearchResponse: {},
         },
         declarations: [
           { name: { text: "other_module" } },
@@ -148,12 +160,18 @@ describe("module set", () => {
           { name: { text: "Bar" } },
           { name: { text: "GetBar" } },
           { name: { text: "GetBar2" } },
+          { name: { text: "Search" } },
+          { name: { text: "SearchRequest" } },
+          { name: { text: "SearchResponse" } },
         ],
         records: [
           { record: { name: { text: "Foo" } } },
           { record: { name: { text: "Outer" } } },
           { record: { name: { text: "Inner" }, recordNumber: 101 } },
+          { record: { name: { text: "LooLoo" } } },
           { record: { name: { text: "Bar" } } },
+          { record: { name: { text: "SearchRequest" } } },
+          { record: { name: { text: "SearchResponse" } } },
         ],
       },
       errors: [],
@@ -621,7 +639,7 @@ describe("module set", () => {
             token: {
               text: "|",
             },
-            expected: '"]"',
+            expected: "']'",
           },
         ],
       });
@@ -677,7 +695,7 @@ describe("module set", () => {
             token: {
               text: "key",
             },
-            expected: '"kind"',
+            expected: "'kind'",
           },
         ],
       });

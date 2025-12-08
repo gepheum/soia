@@ -53,7 +53,7 @@ export function parseModule(
       if (name in nameToDeclaration) {
         errors.push({
           token: nameToken,
-          message: `Duplicate identifier "${name}"`,
+          message: `Duplicate identifier '${name}'`,
         });
       } else {
         nameToDeclaration[name] = declaration;
@@ -108,6 +108,14 @@ function parseDeclarations(
     const declaration = parseDeclaration(it, parentNode);
     if (declaration !== null) {
       result.push(declaration);
+      if (declaration.kind === "method") {
+        if (declaration.inlineRequestRecord) {
+          result.push(declaration.inlineRequestRecord);
+        }
+        if (declaration.inlineResponseRecord) {
+          result.push(declaration.inlineResponseRecord);
+        }
+      }
       continue;
     }
     // We have an invalid statement. An error was already registered. Perhaps
@@ -253,7 +261,7 @@ class RecordBuilder {
       if (name in this.nameToDeclaration) {
         this.errors.push({
           token: nameToken,
-          message: `Duplicate identifier "${name}"`,
+          message: `Duplicate identifier '${name}'`,
         });
         return;
       }
@@ -345,16 +353,40 @@ class RecordBuilder {
   private removedNumbers: number[] = [];
 }
 
+interface InlineRecordContext {
+  context: "field" | "method-request" | "method-response";
+  /** Name of the field or method. */
+  originalName: Token;
+}
+
 function parseRecord(
   it: TokenIterator,
   recordType: "struct" | "enum",
+  inlineContext?: InlineRecordContext,
 ): MutableRecord | null {
   // A struct or an enum.
-  const nameMatch = it.expectThenMove([TOKEN_IS_IDENTIFIER]);
-  if (nameMatch.case < 0) {
-    return null;
+  let nameToken: Token;
+  if (inlineContext) {
+    const { originalName } = inlineContext;
+    let transformedName = casing.convertCase(originalName.text, "UpperCamel");
+    if (inlineContext.context === "method-request") {
+      transformedName += "Request";
+    } else if (inlineContext.context === "method-response") {
+      transformedName += "Response";
+    }
+    nameToken = {
+      ...originalName,
+      text: transformedName,
+    };
+  } else {
+    // Read the name.
+    const nameMatch = it.expectThenMove([TOKEN_IS_IDENTIFIER]);
+    if (nameMatch.case < 0) {
+      return null;
+    }
+    casing.validate(nameMatch.token, "UpperCamel", it.errors);
+    nameToken = nameMatch.token;
   }
-  casing.validate(nameMatch.token, "UpperCamel", it.errors);
   let stableId: number | null = null;
   if (it.peek() === "(") {
     it.next();
@@ -371,14 +403,12 @@ function parseRecord(
   }
   const declarations = parseDeclarations(it, recordType);
   it.expectThenMove(["}"]);
-  const builder = new RecordBuilder(
-    nameMatch.token,
-    recordType,
-    stableId,
-    it.errors,
-  );
+  const builder = new RecordBuilder(nameToken, recordType, stableId, it.errors);
   for (const declaration of declarations) {
     builder.addDeclaration(declaration);
+    if (declaration.kind === "field" && declaration.inlineRecord) {
+      builder.addDeclaration(declaration.inlineRecord);
+    }
   }
   return builder.build();
 }
@@ -389,9 +419,9 @@ function parseField(
   recordType: "struct" | "enum",
 ): MutableField | null {
   // May only be undefined if the type is an enum.
-  let type: UnresolvedType | undefined = undefined;
+  let type: UnresolvedType | undefined;
+  let inlineRecord: MutableRecord | undefined;
   let number = -1;
-
   while (true) {
     const typeAllowed = type === undefined && number < 0;
     const endAllowed = type !== undefined || recordType === "enum";
@@ -404,7 +434,13 @@ function parseField(
     const match = it.expectThenMove(expected);
     switch (match.case) {
       case 0: {
-        type = parseType(it);
+        const inlineContext: InlineRecordContext = {
+          context: "field",
+          originalName: name,
+        };
+        const typeOrInlineRecord = parseTypeOrInlineRecord(it, inlineContext);
+        type = typeOrInlineRecord.type;
+        inlineRecord = typeOrInlineRecord.inlineRecord;
         if (type === undefined) {
           return null;
         }
@@ -436,6 +472,7 @@ function parseField(
           type: undefined,
           // Will be populated at a later stage.
           isRecursive: false,
+          inlineRecord: inlineRecord,
         };
       }
       case -1:
@@ -455,6 +492,36 @@ const PRIMITIVE_TYPES: ReadonlySet<string> = new Set<Primitive>([
   "string",
   "bytes",
 ]);
+
+function parseTypeOrInlineRecord(
+  it: TokenIterator,
+  inlineContext: InlineRecordContext,
+): {
+  type: UnresolvedType | undefined;
+  inlineRecord: MutableRecord | undefined;
+} {
+  if (it.peek() === "struct" || it.peek() === "enum") {
+    const recordType = it.peek() as "struct" | "enum";
+    it.next();
+    const inlineRecord = parseRecord(it, recordType, inlineContext);
+    const type: UnresolvedRecordRef | undefined = inlineRecord
+      ? {
+          kind: "record",
+          nameParts: [inlineRecord.name],
+          absolute: false,
+        }
+      : undefined;
+    return {
+      type: type,
+      inlineRecord: inlineRecord ? inlineRecord : undefined,
+    };
+  } else {
+    return {
+      type: parseType(it),
+      inlineRecord: undefined,
+    };
+  }
+}
 
 function parseType(it: TokenIterator): UnresolvedType | undefined {
   const match = it.expectThenMove([
@@ -600,8 +667,8 @@ function parseUint32(it: TokenIterator): number {
   }
 }
 
-// Parses the "removed" declaration.
-// Assumes the current token is the token after "removed".
+// Parses the 'removed' declaration.
+// Assumes the current token is the token after 'removed'.
 function parseRemoved(it: TokenIterator, removedToken: Token): Removed | null {
   const numbers: number[] = [];
   // The 5 states are:
@@ -748,18 +815,27 @@ function parseMethod(it: TokenIterator): MutableMethod | null {
   if (nameMatch.case < 0) {
     return null;
   }
-  casing.validate(nameMatch.token, "UpperCamel", it.errors);
+  const name = nameMatch.token;
+  casing.validate(name, "UpperCamel", it.errors);
   if (it.expectThenMove(["("]).case < 0) {
     return null;
   }
-  const requestType = parseType(it);
+  const requestTypeOrInlineRecord = parseTypeOrInlineRecord(it, {
+    context: "method-request",
+    originalName: name,
+  });
+  const requestType = requestTypeOrInlineRecord.type;
   if (!requestType) {
     return null;
   }
   if (it.expectThenMove([")"]).case < 0 || it.expectThenMove([":"]).case < 0) {
     return null;
   }
-  const responseType = parseType(it);
+  const responseTypeOrInlineRecord = parseTypeOrInlineRecord(it, {
+    context: "method-response",
+    originalName: name,
+  });
+  const responseType = responseTypeOrInlineRecord.type;
   if (!responseType) {
     return null;
   }
@@ -789,6 +865,8 @@ function parseMethod(it: TokenIterator): MutableMethod | null {
     responseType: undefined,
     number: number,
     hasExplicitNumber: explicitNumber,
+    inlineRequestRecord: requestTypeOrInlineRecord.inlineRecord,
+    inlineResponseRecord: responseTypeOrInlineRecord.inlineRecord,
   };
 }
 
@@ -1044,7 +1122,7 @@ class TokenIterator {
       if (e === null) {
         continue;
       }
-      expectedParts.push(e instanceof TokenPredicate ? e.what() : `"${e}"`);
+      expectedParts.push(e instanceof TokenPredicate ? e.what() : `'${e}'`);
     }
     const expectedMsg =
       expectedParts.length === 1

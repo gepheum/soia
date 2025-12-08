@@ -6,6 +6,7 @@ import type { SkirError, Token } from "./types.js";
 function makeToken(text: string): Token {
   return {
     text: text,
+    originalText: text,
     colNumber: 0,
     line: {
       line: "",
@@ -130,27 +131,14 @@ describe("casing", () => {
   });
 
   it("convert", () => {
-    expect(convertCase("FOO_BAR", "UPPER_UNDERSCORE", "UPPER_UNDERSCORE")).toBe(
-      "FOO_BAR",
-    );
-    expect(convertCase("FOO_BAR", "UPPER_UNDERSCORE", "UpperCamel")).toBe(
-      "FooBar",
-    );
-    expect(convertCase("FOO_BAR", "UPPER_UNDERSCORE", "lowerCamel")).toBe(
-      "fooBar",
-    );
-    expect(convertCase("FOO_BAR", "UPPER_UNDERSCORE", "lower_underscore")).toBe(
-      "foo_bar",
-    );
-    expect(convertCase("FooBar", "UpperCamel", "UPPER_UNDERSCORE")).toBe(
-      "FOO_BAR",
-    );
-    expect(convertCase("fooBar", "lowerCamel", "UPPER_UNDERSCORE")).toBe(
-      "FOO_BAR",
-    );
-    expect(convertCase("foo_bar", "lower_underscore", "UPPER_UNDERSCORE")).toBe(
-      "FOO_BAR",
-    );
+    expect(convertCase("FOO_BAR", "UPPER_UNDERSCORE")).toBe("FOO_BAR");
+    expect(convertCase("FOO_BAR", "UpperCamel")).toBe("FooBar");
+    expect(convertCase("FOO_BAR", "lowerCamel")).toBe("fooBar");
+    expect(convertCase("FOO_BAR", "lower_underscore")).toBe("foo_bar");
+    expect(convertCase("FooBar", "UPPER_UNDERSCORE")).toBe("FOO_BAR");
+    expect(convertCase("fooBar", "UPPER_UNDERSCORE")).toBe("FOO_BAR");
+    expect(convertCase("foo_bar", "UPPER_UNDERSCORE")).toBe("FOO_BAR");
+    expect(convertCase("fo6_b7r", "UpperCamel")).toBe("Fo6B7r");
   });
 
   it("capitalize", () => {

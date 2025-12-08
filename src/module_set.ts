@@ -471,7 +471,7 @@ export class ModuleSet {
           if (fieldName.text !== "kind") {
             errors.push({
               token: fieldName,
-              expected: '"kind"',
+              expected: "'kind'",
             });
             return undefined;
           }
