@@ -4,7 +4,7 @@ import { formatModule } from "./formatter.js";
 import { parseModule } from "./parser.js";
 import { tokenizeModule } from "./tokenizer.js";
 
-const UNFORMATTED_MODULE = `
+const UNFORMATTED_MODULE = `//module
 import A from 'module.skir';  import * as foo from 'module.skir';
 
   struct Empty1 { }
@@ -16,9 +16,15 @@ struct S1 {
   c: double?;
 
 //
+//a
+// b
+///a
+/// b
+///
+/**
+*/
 b: string;
 removed;
-
     enum E {
 
 
@@ -34,6 +40,15 @@ struct S2 {
   b : string=1;//
   c:[[x|foo.a.kind]?] ?=2;
   removed 3, 4..12, 13;
+/**
+*
+    */
+/*
+*
+*/
+/// foo
+  struct Nested {
+}
 }
 
 enum E1 {
@@ -62,7 +77,15 @@ const CONST: [Type] = [
     b://
 3.14
 ,
-  |}
+  |},
+[
+'fo',"fo'",
+"fo\\"",
+'fo"',
+'fo\\"',
+'fo\\\\"',
+]
+
 ];
 
 const F: Foo? = {
@@ -102,12 +125,12 @@ int32 //
   // c
 
 
-  }
-`;
+  }`;
 
 const EXPECTED_FORMATTED_MODULE = [
-  "import A from 'module.skir';",
-  "import * as foo from 'module.skir';",
+  "// module",
+  'import A from "module.skir";',
+  'import * as foo from "module.skir";',
   "",
   "struct Empty1 {}",
   "struct Empty2 {  //",
@@ -118,9 +141,15 @@ const EXPECTED_FORMATTED_MODULE = [
   "  c: double?;",
   "",
   "  //",
+  "  // a",
+  "  // b",
+  "  /// a",
+  "  /// b",
+  "  ///",
+  "  /**",
+  "   */",
   "  b: string;",
   "  removed;",
-  "",
   "  enum E {}",
   "}",
   "",
@@ -133,6 +162,14 @@ const EXPECTED_FORMATTED_MODULE = [
   "  b: string = 1;  //",
   "  c: [[x|foo.a.kind]?]? = 2;",
   "  removed 3, 4..12, 13;",
+  "  /**",
+  "   *",
+  "   */",
+  "  /*",
+  "*",
+  "*/",
+  "  /// foo",
+  "  struct Nested {}",
   "}",
   "",
   "enum E1 {",
@@ -157,7 +194,7 @@ const EXPECTED_FORMATTED_MODULE = [
   "    c: 'n\\\\\"',",
   "    d: 'n\\\"',",
   "    // c doc",
-  "    e: [],  //c,",
+  "    e: [],  // c,",
   "  },",
   "  {||},",
   "  {|",
@@ -165,6 +202,14 @@ const EXPECTED_FORMATTED_MODULE = [
   "    b:  //",
   "    3.14,",
   "  |},",
+  "  [",
+  '    "fo",',
+  '    "fo\'",',
+  '    "fo\\"",',
+  "    'fo\"',",
+  "    'fo\\\"',",
+  "    'fo\\\\\"',",
+  "  ],",
   "];",
   "",
   "const F: Foo? = {",
@@ -184,7 +229,7 @@ const EXPECTED_FORMATTED_MODULE = [
   "",
   "// c",
   "",
-  "//d",
+  "// d",
   "",
   "method GetFoo(",
   "  struct {",

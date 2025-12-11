@@ -1,11 +1,10 @@
-// TODO: save the position
-// TODO normalization:
-//   - string quotes normalization
-//   - make sure there is a space after "// "
-
 import { ModuleTokens } from "./tokenizer.js";
 import type { Token } from "./types.js";
 
+/**
+ * Formats the given module and returns the new source code.
+ * Preserves token ordering and number of tokens.
+ */
 export function formatModule(moduleTokens: ModuleTokens): string {
   const tokens = moduleTokens.tokensWithComments;
 
@@ -14,7 +13,7 @@ export function formatModule(moduleTokens: ModuleTokens): string {
     indentStack: [{ indent: "" }],
   };
 
-  let result = tokens[0]!.text;
+  let result = normalizeToken(tokens[0]!.text, "");
 
   for (let i = 1; i < tokens.length; i++) {
     const token = tokens[i - 1]!;
@@ -31,8 +30,8 @@ export function formatModule(moduleTokens: ModuleTokens): string {
     }
 
     let space = getWhitespaceAfterToken(token, next, nextNonComment!, context);
+    const topOfStack = context.indentStack.at(-1)!;
     if (space === "\n" || space === "\n\n") {
-      const topOfStack = context.indentStack.at(-1)!;
       space = space + topOfStack.indent;
     }
 
@@ -41,7 +40,7 @@ export function formatModule(moduleTokens: ModuleTokens): string {
       result += ",";
     }
 
-    result += space + next.text;
+    result += space + normalizeToken(next.text, topOfStack.indent);
   }
 
   return result;
@@ -76,7 +75,7 @@ function getWhitespaceAfterToken(
   nextNonComment: Token,
   context: Context,
 ): "" | " " | "  " | "\n" | "\n\n" {
-  const topOfStack = () => context.indentStack.at(-1)!;
+  const topOfStack: () => IndentStackItem = () => context.indentStack.at(-1)!;
 
   const indentUnit = "  ";
   if (
@@ -198,4 +197,48 @@ function oneOrTwoLineBreaks(first: Token, second: Token): "\n" | "\n\n" {
 
 function isComment(token: Token): boolean {
   return token.text.startsWith("//") || token.text.startsWith("/*");
+}
+
+function normalizeToken(token: string, indent: string): string {
+  if (token.startsWith("//")) {
+    // Make sure there is a space between the double slash and the comment text.
+    if (
+      token.startsWith("// ") ||
+      token.startsWith("/// ") ||
+      token === "//" ||
+      token === "///"
+    ) {
+      return token;
+    } else if (token.startsWith("///")) {
+      return "/// " + token.slice(3);
+    } else {
+      return "// " + token.slice(2);
+    }
+  } else if (token.startsWith("/**")) {
+    const lines = token.split("\n");
+    const linesUnder = lines.slice(1).map((l) => l.trimStart());
+    if (linesUnder.every((l) => l.startsWith("*"))) {
+      return [lines[0]!, ...linesUnder.map((l) => `${indent} ${l}`)].join("\n");
+    } else {
+      return token;
+    }
+  } else if (token.startsWith("'")) {
+    // A single-quoted string
+    if (token.includes('"')) {
+      // Remove escape characters before single quotes.
+      return token.replace(/\\(?=(?:\\\\)*')/g, "");
+    } else {
+      // If the string does not contain double quotes, turn it into a
+      // double-quoted string for consistency
+      const content = token.slice(1, -1);
+      // Remove escape characters before double quotes.
+      return '"' + content.replace(/\\(?=(?:\\\\)*")/g, "") + '"';
+    }
+  } else if (token.startsWith('"')) {
+    // A double-quoted string
+    // Remove escape characters before double quotes.
+    return token.replace(/\\(?=(?:\\\\)*')/g, "");
+  } else {
+    return token;
+  }
 }
