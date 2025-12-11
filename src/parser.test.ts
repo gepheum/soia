@@ -7,7 +7,7 @@ import { Module, Result } from "./types.js";
 function parse(content: string): Result<Module> {
   const pathToModule = "path/to/module";
   const tokenizerResult = tokenizeModule(content, pathToModule);
-  return parseModule(tokenizerResult.result, pathToModule, content);
+  return parseModule(tokenizerResult.result);
 }
 
 describe("module parser", () => {

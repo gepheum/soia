@@ -27,281 +27,301 @@ describe("tokenizer", () => {
 
     expect(actual).toMatch({
       errors: [],
-      result: [
-        {
-          text: "import",
-          originalText: "import",
-          position: 0,
-          line: {
-            lineNumber: 0,
-            line: "import foo from './path/😊/foo';",
+      result: {
+        tokens: [
+          {
+            text: "import",
             position: 0,
-            modulePath: "path/to/module",
+            line: {
+              lineNumber: 0,
+              line: "import foo from './path/😊/foo';",
+              position: 0,
+              modulePath: "path/to/module",
+            },
+            colNumber: 0,
           },
-          colNumber: 0,
-        },
-        {
-          text: "foo",
-          position: 7,
-          colNumber: 7,
-        },
-        {
-          text: "from",
-          position: 11,
-          colNumber: 11,
-        },
-        {
-          text: "'./path/😊/foo'",
-          position: 16,
-          colNumber: 16,
-        },
-        {
-          text: ";",
-          position: 31,
-          colNumber: 31,
-        },
-        {
-          text: "import",
-          position: 33,
-          colNumber: 0,
-        },
-        {
-          text: "*",
-          position: 40,
-          line: {
-            lineNumber: 1,
-            line: 'import * as bar from "path/to/bar";',
+          {
+            text: "foo",
+            position: 7,
+            colNumber: 7,
+          },
+          {
+            text: "from",
+            position: 11,
+            colNumber: 11,
+          },
+          {
+            text: "'./path/😊/foo'",
+            position: 16,
+            colNumber: 16,
+          },
+          {
+            text: ";",
+            position: 31,
+            colNumber: 31,
+          },
+          {
+            text: "import",
             position: 33,
-            modulePath: "path/to/module",
+            colNumber: 0,
           },
-          colNumber: 7,
-        },
-        {
-          text: "as",
-          position: 42,
-          colNumber: 9,
-        },
-        {
-          text: "bar",
-          position: 45,
-          colNumber: 12,
-        },
-        {
-          text: "from",
-          position: 49,
-          colNumber: 16,
-        },
-        {
-          text: '"path/to/bar"',
-          position: 54,
-          colNumber: 21,
-        },
-        {
-          text: ";",
-        },
-        {
-          text: "struct",
-        },
-        {
-          text: "Point2d",
-        },
-        {
-          text: "{",
-        },
-        {
-          text: "x",
-        },
-        {
-          text: ":",
-        },
-        {
-          text: "float32",
-        },
-        {
-          text: "=",
-        },
-        {
-          text: "1",
-        },
-        {
-          text: ";",
-        },
-        {
-          text: "y",
-        },
-        {
-          text: ":",
-        },
-        {
-          text: "float32",
-        },
-        {
-          text: "=",
-        },
-        {
-          text: "2",
-        },
-        {
-          text: ";",
-        },
-        {
-          text: "foos",
-        },
-        {
-          text: ":",
-        },
-        {
-          text: "[",
-        },
-        {
-          text: "foo",
-        },
-        {
-          text: ".",
-        },
-        {
-          text: "Foo",
-        },
-        {
-          text: "]",
-        },
-        {
-          text: "?",
-        },
-        {
-          text: "=",
-        },
-        {
-          text: "4",
-        },
-        {
-          text: ";",
-        },
-        {
-          text: "bars",
-        },
-        {
-          text: ":",
-        },
-        {
-          text: "[",
-        },
-        {
-          text: "Bar",
-        },
-        {
-          text: "|",
-        },
-        {
-          text: "key",
-        },
-        {
-          text: "]",
-        },
-        {
-          text: "=",
-        },
-        {
-          text: "8",
-        },
-        {
-          text: ";",
-        },
-        {
-          text: "removed",
-        },
-        {
-          text: "3",
-        },
-        {
-          text: ",",
-        },
-        {
-          text: "5",
-        },
-        {
-          text: "..",
-        },
-        {
-          text: "7",
-        },
-        {
-          text: ";",
-        },
-        {
-          text: "}",
-        },
-        {
-          text: "const",
-        },
-        {
-          text: "MINUS_ONE",
-        },
-        {
-          text: ":",
-        },
-        {
-          text: "int32",
-        },
-        {
-          text: "=",
-        },
-        {
-          text: "-1",
-        },
-        {
-          text: ";",
-        },
-        {
-          text: "const",
-        },
-        {
-          text: "MINUS_ONE_AND_A_HALF",
-        },
-        {
-          text: ":",
-        },
-        {
-          text: "float32",
-        },
-        {
-          text: "=",
-        },
-        {
-          text: "-1.5",
-        },
-        {
-          text: ";",
-        },
-        {
-          text: "const",
-        },
-        {
-          text: "STRUCT",
-        },
-        {
-          text: ":",
-        },
-        {
-          text: "Point2d",
-        },
-        {
-          text: "=",
-        },
-        {
-          text: "{|",
-        },
-        {
-          text: "|}",
-        },
-        {
-          text: ";",
-        },
-        {
-          text: "",
-        },
-      ],
+          {
+            text: "*",
+            position: 40,
+            line: {
+              lineNumber: 1,
+              line: 'import * as bar from "path/to/bar";',
+              position: 33,
+              modulePath: "path/to/module",
+            },
+            colNumber: 7,
+          },
+          {
+            text: "as",
+            position: 42,
+            colNumber: 9,
+          },
+          {
+            text: "bar",
+            position: 45,
+            colNumber: 12,
+          },
+          {
+            text: "from",
+            position: 49,
+            colNumber: 16,
+          },
+          {
+            text: '"path/to/bar"',
+            position: 54,
+            colNumber: 21,
+          },
+          {
+            text: ";",
+          },
+          {
+            text: "struct",
+          },
+          {
+            text: "Point2d",
+          },
+          {
+            text: "{",
+          },
+          {
+            text: "x",
+          },
+          {
+            text: ":",
+          },
+          {
+            text: "float32",
+          },
+          {
+            text: "=",
+          },
+          {
+            text: "1",
+          },
+          {
+            text: ";",
+          },
+          {
+            text: "y",
+          },
+          {
+            text: ":",
+          },
+          {
+            text: "float32",
+          },
+          {
+            text: "=",
+          },
+          {
+            text: "2",
+          },
+          {
+            text: ";",
+          },
+          {
+            text: "foos",
+          },
+          {
+            text: ":",
+          },
+          {
+            text: "[",
+          },
+          {
+            text: "foo",
+          },
+          {
+            text: ".",
+          },
+          {
+            text: "Foo",
+          },
+          {
+            text: "]",
+          },
+          {
+            text: "?",
+          },
+          {
+            text: "=",
+          },
+          {
+            text: "4",
+          },
+          {
+            text: ";",
+          },
+          {
+            text: "bars",
+          },
+          {
+            text: ":",
+          },
+          {
+            text: "[",
+          },
+          {
+            text: "Bar",
+          },
+          {
+            text: "|",
+          },
+          {
+            text: "key",
+          },
+          {
+            text: "]",
+          },
+          {
+            text: "=",
+          },
+          {
+            text: "8",
+          },
+          {
+            text: ";",
+          },
+          {
+            text: "removed",
+          },
+          {
+            text: "3",
+          },
+          {
+            text: ",",
+          },
+          {
+            text: "5",
+          },
+          {
+            text: "..",
+          },
+          {
+            text: "7",
+          },
+          {
+            text: ";",
+          },
+          {
+            text: "}",
+          },
+          {
+            text: "const",
+          },
+          {
+            text: "MINUS_ONE",
+          },
+          {
+            text: ":",
+          },
+          {
+            text: "int32",
+          },
+          {
+            text: "=",
+          },
+          {
+            text: "-1",
+          },
+          {
+            text: ";",
+          },
+          {
+            text: "const",
+          },
+          {
+            text: "MINUS_ONE_AND_A_HALF",
+          },
+          {
+            text: ":",
+          },
+          {
+            text: "float32",
+          },
+          {
+            text: "=",
+          },
+          {
+            text: "-1.5",
+          },
+          {
+            text: ";",
+          },
+          {
+            text: "const",
+          },
+          {
+            text: "STRUCT",
+          },
+          {
+            text: ":",
+          },
+          {
+            text: "Point2d",
+          },
+          {
+            text: "=",
+          },
+          {
+            text: "{|",
+          },
+          {
+            text: "|}",
+          },
+          {
+            text: ";",
+          },
+          {
+            text: "",
+          },
+        ],
+      },
     });
+
+    expect(
+      actual.result.tokensWithComments.filter(
+        (t) => !t.text.startsWith("//") && !t.text.startsWith("/*"),
+      ),
+    ).toMatch(actual.result.tokens);
+    expect(
+      actual.result.tokensWithComments.filter(
+        (t) => t.text.startsWith("//") || t.text.startsWith("/*"),
+      ),
+    ).toMatch([
+      {
+        text: "// Single-line comment",
+        originalText: "// Single-line comment",
+      },
+      {
+        text: ["/* Multi-line", "  comment */"].join("\n"),
+      },
+    ]);
   });
 
   it("tokenizes module with single-quoted string", () => {

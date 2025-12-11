@@ -1,20 +1,21 @@
 import { expect } from "buckwheat";
 import { describe, it } from "mocha";
 import { formatModule } from "./formatter.js";
+import { parseModule } from "./parser.js";
 import { tokenizeModule } from "./tokenizer.js";
 
 const UNFORMATTED_MODULE = `
-/* module */ import A from 'module.skir';  import * as foo from 'module.skir';
+import A from 'module.skir';  import * as foo from 'module.skir';
 
   struct Empty1 { }
 struct Empty2 { //
-  }  /*a*///
+  }  //
 
 struct S1 {
   a: int32;
+  c: double?;
 
 //
-/* aaa */
 b: string;
 removed;
 
@@ -25,12 +26,14 @@ removed;
 }
 
 // doc for
+  /* foo
+  */
 // s2
 struct S2 {
-  a : int32=0 /* a */;
+  a : int32=0 ;
   b : string=1;//
-  c:[[x|foo.a.kind]?] ?;
-  removed 5, 10-12, 13;
+  c:[[x|foo.a.kind]?] ?=2;
+  removed 3, 4..12, 13;
 }
 
 enum E1 {
@@ -45,117 +48,177 @@ enum E2 {
 
 method M(Request):Response;
 
-/* a */const CONST: [Type] = [
+const CONST: [Type] = [
   1, [], {}, {
-    "a" : true,
-    'n\\\\"': null,
-    'n\\"': null, // null
+    a : true,
+    b: null,
+    c: 'n\\\\"',
+    d: 'n\\"',
 // c doc
-    'c': []  // c
+      e: [ ]  //c
   },
   {||}, {|  
-    "a": true,
+    a: true,
+    b://
+3.14
+,
   |}
 ];
 
-struct S {
+const F: Foo? = {
+  a: null,b: 3.14,c:false
+}
+
+;struct S {
   // a
 }
 
-struct S { // a
+struct So ( 100 ) { // a
   // b
-/* c */}  // d
+    }  // d
 
 // a
 
-  /* b */ // c
+  // c
 
 //d
-`;
 
-const EXPECTED_FORMATTED_MODULE = `/* module */
-import A from "module.skir";
-import * as foo from "module.skir";
+method GetFoo(struct {a: enum { z: int32; g
+:
+bool;
+h: //
+[
+int32 //
+?];}; b: bool; }): struct {
+  x: int32; y: int32;};
 
-struct Empty1 {}
-struct Empty2 {  //
-}  /*a*/  //
-
-struct S1 {
-  a: int32;
-
-  //
-  /* aaa */
-  b: string;
-  removed;
-
-  enum E {}
-}
-
-// doc for
-// s2
-struct S2 {
-  a: int32 = 0  /* a */
-  ;
-  b: string = 1;  //
-  c: [[x|foo.a.kind]?]?;
-  removed 5, 10-12, 13;
-}
-
-enum E1 {
-  A;
-  B;
-  c: bool;
-}
-enum E2 {
-  A = 1;
-  B = 2;
-}
-
-method M(Request): Response;
-
-/* a */
-const CONST: [Type] = [
-  1,
-  [],
-  {},
-  {
-    "a": true,
-    'n\\\\"': null,
-    "n\\"": null,  // null
-    // c doc
-    "c": [],  // c
-  },
-  {||},
-  {|
-    "a": true,
-  |},
-];
-
-struct S {
+  struct G {
   // a
-}
 
-struct S {  // a
   // b
-  /* c */
-}  // d
+  // b2
 
-// a
 
-/* b */  // c
+  // c
 
-//d
+
+  }
 `;
+
+const EXPECTED_FORMATTED_MODULE = [
+  "import A from 'module.skir';",
+  "import * as foo from 'module.skir';",
+  "",
+  "struct Empty1 {}",
+  "struct Empty2 {  //",
+  "}  //",
+  "",
+  "struct S1 {",
+  "  a: int32;",
+  "  c: double?;",
+  "",
+  "  //",
+  "  b: string;",
+  "  removed;",
+  "",
+  "  enum E {}",
+  "}",
+  "",
+  "// doc for",
+  "/* foo",
+  "  */",
+  "// s2",
+  "struct S2 {",
+  "  a: int32 = 0;",
+  "  b: string = 1;  //",
+  "  c: [[x|foo.a.kind]?]? = 2;",
+  "  removed 3, 4..12, 13;",
+  "}",
+  "",
+  "enum E1 {",
+  "  A;",
+  "  B;",
+  "  c: bool;",
+  "}",
+  "enum E2 {",
+  "  A = 1;",
+  "  B = 2;",
+  "}",
+  "",
+  "method M(Request): Response;",
+  "",
+  "const CONST: [Type] = [",
+  "  1,",
+  "  [],",
+  "  {},",
+  "  {",
+  "    a: true,",
+  "    b: null,",
+  "    c: 'n\\\\\"',",
+  "    d: 'n\\\"',",
+  "    // c doc",
+  "    e: [],  //c,",
+  "  },",
+  "  {||},",
+  "  {|",
+  "    a: true,",
+  "    b:  //",
+  "    3.14,",
+  "  |},",
+  "];",
+  "",
+  "const F: Foo? = {",
+  "  a: null,",
+  "  b: 3.14,",
+  "  c: false,",
+  "};",
+  "struct S {",
+  "  // a",
+  "}",
+  "",
+  "struct So(100) {  // a",
+  "  // b",
+  "}  // d",
+  "",
+  "// a",
+  "",
+  "// c",
+  "",
+  "//d",
+  "",
+  "method GetFoo(",
+  "  struct {",
+  "    a: enum {",
+  "      z: int32;",
+  "      g: bool;",
+  "      h:  //",
+  "      [int32  //",
+  "      ?];",
+  "    };",
+  "    b: bool;",
+  "  }",
+  "): struct {",
+  "  x: int32;",
+  "  y: int32;",
+  "};",
+  "",
+  "struct G {",
+  "  // a",
+  "",
+  "  // b",
+  "  // b2",
+  "",
+  "  // c",
+  "}",
+  "",
+].join("\n");
 
 describe("formatModule", () => {
   it("works", () => {
-    const tokens = tokenizeModule(
-      UNFORMATTED_MODULE,
-      "path/to/module",
-      "keep-comments",
-    );
+    const tokens = tokenizeModule(UNFORMATTED_MODULE, "path/to/module");
     expect(tokens.errors).toMatch([]);
+    const parsedModule = parseModule(tokens.result);
+    expect(parsedModule.errors).toMatch([]);
     const formatted = formatModule(tokens.result);
     expect(formatted).toMatch(EXPECTED_FORMATTED_MODULE);
   });

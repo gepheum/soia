@@ -1,274 +1,201 @@
+// TODO: save the position
+// TODO normalization:
+//   - string quotes normalization
+//   - make sure there is a space after "// "
+
+import { ModuleTokens } from "./tokenizer.js";
 import type { Token } from "./types.js";
 
-export function formatModule(tokens: readonly Token[]): string {
-  const sink = new CodeSink();
-  let inValue = false;
-  let indentDepth = 0;
-  const iterator = new TokenIterator(tokens);
+export function formatModule(moduleTokens: ModuleTokens): string {
+  const tokens = moduleTokens.tokensWithComments;
 
-  const copyInlineComments = (): void => {
-    while (
-      iterator.hasNext() &&
-      isComment(iterator.peek().text) &&
-      iterator.peek().line.lineNumber === iterator.current.line.lineNumber
-    ) {
-      // Preserve comments before line break.
-      sink.write("  " + iterator.next().text);
-    }
+  const context: Context = {
+    context: null,
+    indentStack: [{ indent: "" }],
   };
 
-  const breakLine = (): void => {
-    copyInlineComments();
-    const { lastLineOnlyHasWhitespaces } = sink;
-    if (iterator.hasNext()) {
-      const current = iterator.current;
-      const next = iterator.peek();
-      if (next.line.lineNumber >= current.line.lineNumber + 2) {
-        // Preserve double line breaks.
-        sink.write("\n");
+  let result = tokens[0]!.text;
+
+  for (let i = 1; i < tokens.length; i++) {
+    const token = tokens[i - 1]!;
+    const next = tokens[i]!;
+
+    // Find the next non-comment token
+    let nextNonComment = next;
+    for (let j = i; j < tokens.length; j++) {
+      const token = tokens[j]!;
+      if (!isComment(token)) {
+        nextNonComment = token;
+        break;
       }
     }
-    if (!lastLineOnlyHasWhitespaces) {
-      sink.write("\n" + "  ".repeat(indentDepth));
+
+    let space = getWhitespaceAfterToken(token, next, nextNonComment!, context);
+    if (space === "\n" || space === "\n\n") {
+      const topOfStack = context.indentStack.at(-1)!;
+      space = space + topOfStack.indent;
     }
-  };
 
-  const breakLineAndIndent = (): void => {
-    ++indentDepth;
-    breakLine();
-  };
-
-  const unindent = (): void => {
-    --indentDepth;
-    sink.removeWhitespaceSuffix("  ");
-  };
-
-  while (iterator.hasNext()) {
-    const token = iterator.next();
-    switch (token.text) {
-      case "as":
-      case "const":
-      case "enum":
-      case "import":
-      case "method":
-      case "struct":
-      case "*":
-      case ":": {
-        sink.write(token.text + " ");
-        break;
-      }
-      case "from": {
-        sink.write(" from ");
-        break;
-      }
-      case "removed": {
-        if (iterator.hasNext() && iterator.peek().text === ";") {
-          sink.write("removed");
-        } else {
-          sink.write("removed ");
-        }
-        break;
-      }
-      case "{": {
-        if (iterator.hasNext() && iterator.peek().text === "}") {
-          sink.write(inValue ? "{}" : " {}");
-          iterator.next();
-          if (!inValue) {
-            breakLine();
-          }
-        } else {
-          sink.write(inValue ? "{" : " {");
-          breakLineAndIndent();
-        }
-        break;
-      }
-      case "{|": {
-        if (iterator.hasNext() && iterator.peek().text === "|}") {
-          sink.write(inValue ? "{||}" : " {||}");
-          iterator.next();
-          if (!inValue) {
-            breakLine();
-          }
-        } else {
-          sink.write(inValue ? "{|" : " {|");
-          breakLineAndIndent();
-        }
-        break;
-      }
-      case "}": {
-        if (inValue) {
-          sink.maybeWriteTrailingComma();
-          breakLine();
-        }
-        unindent();
-        sink.write("}");
-        if (!inValue) {
-          breakLine();
-        }
-        break;
-      }
-      case "|}": {
-        if (inValue) {
-          sink.maybeWriteTrailingComma();
-          breakLine();
-        }
-        unindent();
-        sink.write("|}");
-        if (!inValue) {
-          breakLine();
-        }
-        break;
-      }
-      case "[": {
-        if (iterator.hasNext() && iterator.peek().text === "]") {
-          sink.write("[]");
-          iterator.next();
-        } else {
-          sink.write("[");
-          if (inValue) {
-            breakLineAndIndent();
-          }
-        }
-        break;
-      }
-      case "]": {
-        if (inValue) {
-          sink.maybeWriteTrailingComma();
-          breakLine();
-          unindent();
-        }
-        sink.write("]");
-        break;
-      }
-      case ";": {
-        sink.write(";");
-        inValue = false;
-        breakLine();
-        break;
-      }
-      case "=": {
-        inValue = true;
-        sink.write(" = ");
-        break;
-      }
-      case ",": {
-        if (inValue) {
-          sink.write(",");
-          breakLine();
-        } else {
-          sink.write(", ");
-        }
-        break;
-      }
-      default: {
-        if (isComment(token.text)) {
-          sink.writeComment(token.text);
-          breakLine();
-        } else if (token.text.startsWith("'")) {
-          const unescapedDoubleQuoteRegex = /(?:^|[^\\])(?:\\\\)*"/;
-          if (unescapedDoubleQuoteRegex.test(token.text)) {
-            sink.write(token.text);
-          } else {
-            // Switch to double quotes.
-            const unquoted = token.text.slice(1, -1);
-            sink.write(`"${unquoted}"`);
-          }
-        } else {
-          sink.write(token.text);
-        }
-      }
+    // Add trailing comma if needed
+    if (shouldAddTrailingComma(token, nextNonComment!, context)) {
+      result += ",";
     }
-  }
 
-  const result = sink.code;
-  if (indentDepth !== 0) {
-    throw new Error(`result=${result}`);
+    result += space + next.text;
   }
 
   return result;
 }
 
-class TokenIterator {
-  private nextIndex = 0;
+type Context = {
+  context:
+    | "const" // Between 'const' and '='
+    | "in-value" // After 'const', between '=' and ';'
+    | "removed" // Between 'removed' and ';'
+    | null;
+  readonly indentStack: IndentStackItem[];
+};
 
-  constructor(private readonly tokens: readonly Token[]) {}
+interface IndentStackItem {
+  indent: string;
+  // If true, the new indentation level is for the declaration of an inline
+  // record as a method request type:
+  //    method GetFoo(
+  //      struct {
+  //        ...
+  //      }
+  //    ): Foo;
+  inlineRecordInBracket?: true;
+}
 
-  next(): Token {
-    if (this.nextIndex < this.tokens.length) {
-      return this.tokens[this.nextIndex++]!;
-    }
-    throw new Error();
+function getWhitespaceAfterToken(
+  token: Token,
+  next: Token,
+  // If 'next' is a comment, the next non-comment token after 'next'.
+  // Otherwise, 'next' itself.
+  nextNonComment: Token,
+  context: Context,
+): "" | " " | "  " | "\n" | "\n\n" {
+  const topOfStack = () => context.indentStack.at(-1)!;
+
+  const indentUnit = "  ";
+  if (
+    token.text === "{" ||
+    token.text === "{|" ||
+    (context.context === "in-value" && token.text === "[")
+  ) {
+    context.indentStack.push({
+      indent: topOfStack().indent + indentUnit,
+    });
+  } else if (
+    token.text === "(" &&
+    ["struct", "enum"].includes(nextNonComment.text)
+  ) {
+    context.indentStack.push({
+      indent: topOfStack().indent + indentUnit,
+      inlineRecordInBracket: true,
+    });
   }
 
-  peek(): Token {
-    if (this.nextIndex < this.tokens.length) {
-      return this.tokens[this.nextIndex]!;
-    }
-    throw new Error();
+  if (
+    next.text === "}" ||
+    next.text === "|}" ||
+    (context.context === "in-value" && next.text === "]") ||
+    (next.text === ")" && topOfStack().inlineRecordInBracket)
+  ) {
+    context.indentStack.pop();
   }
 
-  hasNext(): boolean {
-    return this.nextIndex < this.tokens.length;
-  }
-
-  get current(): Token {
-    const index = this.nextIndex - 1;
-    if (index < this.tokens.length) {
-      return this.tokens[index]!;
+  if (isComment(token)) {
+    return oneOrTwoLineBreaks(token, next);
+  } else if (
+    token.text !== "{" &&
+    next.text === "}" &&
+    context.context !== "in-value"
+  ) {
+    return "\n";
+  } else if (isComment(next)) {
+    return token.line.lineNumber === next.line.lineNumber
+      ? "  "
+      : oneOrTwoLineBreaks(token, next);
+  } else if (next.text === "=") {
+    return " ";
+  } else if (
+    (token.text === "[" && next.text === "]") ||
+    (token.text === "{" && next.text === "}") ||
+    (token.text === "{|" && next.text === "|}")
+  ) {
+    return "";
+  } else if (["{", "{|"].includes(token.text)) {
+    return "\n";
+  } else if (token.text === "[") {
+    return context.context === "in-value" ? "\n" : "";
+  } else if (["*", ":"].includes(token.text)) {
+    return " ";
+  } else if (token.text === "(") {
+    return ["struct", "enum"].includes(next.text) ? "\n" : "";
+  } else if (token.text === ")") {
+    return next.text === "{" ? " " : "";
+  } else if (token.text === ";") {
+    context.context = null;
+    return oneOrTwoLineBreaks(token, next);
+  } else if (token.text === "}") {
+    return [",", ";"].includes(next.text)
+      ? ""
+      : oneOrTwoLineBreaks(token, next);
+  } else if (token.text === ",") {
+    return context.context === "removed" ? " " : "\n";
+  } else if (token.text === "=") {
+    if (context.context === "const") {
+      context.context = "in-value";
     }
-    throw new Error();
+    return " ";
+  } else if (token.text === "const") {
+    context.context = "const";
+    return " ";
+  } else if (token.text === "removed") {
+    context.context = "removed";
+    return next.text === ";" ? "" : " ";
+  } else if (
+    context.context === "in-value" &&
+    ["]", "}", "|}"].includes(next.text)
+  ) {
+    return "\n";
+  } else if (
+    /^[A-Za-z]/.test(token.text) &&
+    !["(", ":", ",", ";", "|", ".", ")", "]", "?"].includes(next.text)
+  ) {
+    return " ";
+  } else {
+    return "";
   }
 }
 
-function isComment(token: string): boolean {
-  return token.startsWith("//") || token.startsWith("/*");
+function shouldAddTrailingComma(
+  first: Token,
+  nextNonComment: Token,
+  context: Context,
+): boolean {
+  return (
+    context.context === "in-value" &&
+    ["]", "}", "|}"].includes(nextNonComment.text) &&
+    !["[", "{", "{|", ","].includes(first.text)
+  );
 }
 
-class CodeSink {
-  private _code: string = "";
-  // Position after the last non-whitespace character which is not part of a
-  // comment.
-  private endPosition = 0;
-
-  /** Writes a token possibly preceded or followed by whitespaces. */
-  write(text: string): void {
-    const trimmed = text.trim();
-    if (trimmed && !isComment(trimmed)) {
-      this.endPosition = trimmed.endsWith(",")
-        ? 0
-        : this.code.length + text.trimEnd().length;
-    }
-    this._code += text;
+function oneOrTwoLineBreaks(first: Token, second: Token): "\n" | "\n\n" {
+  const firstLineNumber =
+    first.line.lineNumber + first.originalText.split("\n").length - 1;
+  if (
+    firstLineNumber < second.line.lineNumber - 1 &&
+    (isComment(second) || /^[A-Za-z]/.test(second.text))
+  ) {
+    return "\n\n";
+  } else {
+    return "\n";
   }
+}
 
-  writeComment(text: string): void {
-    if (this.lastLineOnlyHasWhitespaces) {
-      this._code += text;
-    } else {
-      this._code = this.code.trimEnd() + "  " + text;
-    }
-  }
-
-  maybeWriteTrailingComma(): void {
-    if (this.endPosition === 0) {
-      return;
-    }
-    const { code } = this;
-    this._code =
-      code.slice(0, this.endPosition) + "," + code.slice(this.endPosition);
-  }
-
-  removeWhitespaceSuffix(suffix: string): void {
-    if (this.code.endsWith(suffix)) {
-      this._code = this.code.slice(0, -suffix.length);
-    }
-  }
-
-  get lastLineOnlyHasWhitespaces(): boolean {
-    return /^$|\n\s*$/.test(this.code);
-  }
-
-  get code(): string {
-    return this._code;
-  }
+function isComment(token: Token): boolean {
+  return token.text.startsWith("//") || token.text.startsWith("/*");
 }

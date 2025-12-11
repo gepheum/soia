@@ -1119,7 +1119,7 @@ abstract class ModuleParserBase implements ModuleParser {
       };
     }
 
-    return parseModule(tokens.result, modulePath, code);
+    return parseModule(tokens.result);
   }
 }
 

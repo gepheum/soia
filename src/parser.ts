@@ -1,4 +1,5 @@
 import * as casing from "./casing.js";
+import { ModuleTokens } from "./tokenizer.js";
 import type {
   Declaration,
   ErrorSink,
@@ -29,11 +30,8 @@ import type {
 } from "./types.js";
 
 /** Runs syntactic analysis on a module. */
-export function parseModule(
-  tokens: readonly Token[],
-  modulePath: string,
-  sourceCode: string,
-): Result<MutableModule> {
+export function parseModule(moduleTokens: ModuleTokens): Result<MutableModule> {
+  const { tokens, modulePath, sourceCode } = moduleTokens;
   const errors: SkirError[] = [];
   const it = new TokenIterator(tokens, errors);
   const declarations = parseDeclarations(it, "module");

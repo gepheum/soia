@@ -292,7 +292,7 @@ async function format(root: string, mode: "fix" | "check"): Promise<void> {
     if (unformattedCode === undefined) {
       throw new Error(`Cannot read ${skirFile.fullpath()}`);
     }
-    const tokens = tokenizeModule(unformattedCode, "", "keep-comments");
+    const tokens = tokenizeModule(unformattedCode, "");
     if (tokens.errors.length) {
       renderErrors(tokens.errors);
       process.exit(1);

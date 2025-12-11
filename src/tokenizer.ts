@@ -1,16 +1,22 @@
 import { unquoteAndUnescape } from "./literals.js";
 import type { CodeLine, ErrorSink, Result, SkirError, Token } from "./types.js";
 
+export interface ModuleTokens {
+  readonly tokens: readonly Token[];
+  readonly tokensWithComments: readonly Token[];
+  readonly sourceCode: string;
+  readonly modulePath: string;
+}
+
 /** Tokenizes the given module. */
 export function tokenizeModule(
-  code: string,
+  sourceCode: string,
   modulePath: string,
-  keepComments?: "keep-comments",
-): Result<Token[]> {
+): Result<ModuleTokens> {
   const tokens: Token[] = [];
   const errors: SkirError[] = [];
 
-  const lines = new Lines(code, modulePath);
+  const lines = new Lines(sourceCode, modulePath);
 
   // Multiline comment:            \/\*([^*]|\*[^\/])*(\*\/)?
   // Single-line comment:          \/\/[^\n\r]*
@@ -28,7 +34,7 @@ export function tokenizeModule(
 
   let group: RegExpExecArray | null;
   let expectedPosition = 0;
-  while ((group = re.exec(code)) !== null) {
+  while ((group = re.exec(sourceCode)) !== null) {
     const position = re.lastIndex - group[0].length;
 
     // Check that all the regex matches are consecutive.
@@ -37,14 +43,14 @@ export function tokenizeModule(
     if (position !== expectedPosition) {
       const line = lines.advancePosition(expectedPosition);
       const colNumber = expectedPosition - line.position;
-      const text = code.substring(expectedPosition, position);
+      const text = sourceCode.substring(expectedPosition, position);
       errors.push({
         token: {
-          text,
+          text: text,
           originalText: text,
           position: expectedPosition,
-          line,
-          colNumber,
+          line: line,
+          colNumber: colNumber,
         },
         message: "Invalid sequence of characters",
       });
@@ -56,26 +62,16 @@ export function tokenizeModule(
     const token: Token = {
       text: group[0],
       originalText: group[0],
-      position,
-      line,
-      colNumber,
+      position: position,
+      line: line,
+      colNumber: colNumber,
     };
 
-    // Skip multiline comments.
-    if (group[1] !== undefined && !keepComments) {
-      // Make sure the multiline comment is terminated.
-      if (!group[1].endsWith("*/")) {
-        errors.push({
-          token: token,
-          message: "Unterminated multi-line comment",
-        });
-      }
-      continue;
-    }
-
-    // Skip single-line comments.
-    if (group[4] !== undefined && !keepComments) {
-      continue;
+    if (group[1] !== undefined && !group[1].endsWith("*/")) {
+      errors.push({
+        token: token,
+        message: "Unterminated multi-line comment",
+      });
     }
 
     if (group[8] !== undefined) {
@@ -129,7 +125,15 @@ export function tokenizeModule(
     }
   }
 
-  return { result: tokens, errors: errors };
+  return {
+    result: {
+      tokens: tokens.filter((t) => !isComment(t.originalText)),
+      tokensWithComments: tokens,
+      sourceCode: sourceCode,
+      modulePath: modulePath,
+    },
+    errors: errors,
+  };
 }
 
 function validateWord(token: Token, errors: ErrorSink): boolean {
@@ -174,6 +178,10 @@ function validateWord(token: Token, errors: ErrorSink): boolean {
   }
 
   return true;
+}
+
+function isComment(token: string): boolean {
+  return token.startsWith("//") || token.startsWith("/*");
 }
 
 class Lines {

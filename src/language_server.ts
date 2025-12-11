@@ -120,7 +120,7 @@ export class LanguageServerModuleSet {
           errors: tokens.errors,
         };
       } else {
-        astTree = parseModule(tokens.result, uri, content);
+        astTree = parseModule(tokens.result);
       }
     }
     return {
