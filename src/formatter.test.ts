@@ -21,8 +21,6 @@ struct S1 {
 ///a
 /// b
 ///
-/**
-*/
 b: string;
 removed;
     enum E {
@@ -40,9 +38,6 @@ struct S2 {
   b : string=1;//
   c:[[x|foo.a.kind]?] ?=2;
   removed 3, 4..12, 13;
-/**
-*
-    */
 /*
 *
 */
@@ -146,8 +141,6 @@ const EXPECTED_FORMATTED_MODULE = [
   "  /// a",
   "  /// b",
   "  ///",
-  "  /**",
-  "   */",
   "  b: string;",
   "  removed;",
   "  enum E {}",
@@ -162,9 +155,6 @@ const EXPECTED_FORMATTED_MODULE = [
   "  b: string = 1;  //",
   "  c: [[x|foo.a.kind]?]? = 2;",
   "  removed 3, 4..12, 13;",
-  "  /**",
-  "   *",
-  "   */",
   "  /*",
   "*",
   "*/",

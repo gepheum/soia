@@ -214,14 +214,6 @@ function normalizeToken(token: string, indent: string): string {
     } else {
       return "// " + token.slice(2);
     }
-  } else if (token.startsWith("/**")) {
-    const lines = token.split("\n");
-    const linesUnder = lines.slice(1).map((l) => l.trimStart());
-    if (linesUnder.every((l) => l.startsWith("*"))) {
-      return [lines[0]!, ...linesUnder.map((l) => `${indent} ${l}`)].join("\n");
-    } else {
-      return token;
-    }
   } else if (token.startsWith("'")) {
     // A single-quoted string
     if (token.includes('"')) {
