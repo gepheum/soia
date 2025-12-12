@@ -151,6 +151,58 @@ describe("module parser", () => {
     });
   });
 
+  it("struct with doc comments", () => {
+    const actualModule = parse(`
+      /// Doc comment
+      /// for Foo
+      struct Foo {
+        /// Doc comment for x
+        x: int32;
+        /// Doc comment for y
+        y: int32;
+      }`);
+
+    expect(actualModule).toMatch({
+      result: {
+        nameToDeclaration: {
+          Foo: {
+            documentation: {
+              docComments: [
+                {
+                  text: "/// Doc comment",
+                },
+                {
+                  text: "/// for Foo",
+                },
+              ],
+            },
+            nameToDeclaration: {
+              x: {
+                documentation: {
+                  docComments: [
+                    {
+                      text: "/// Doc comment for x",
+                    },
+                  ],
+                },
+              },
+              y: {
+                documentation: {
+                  docComments: [
+                    {
+                      text: "/// Doc comment for y",
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      },
+      errors: [],
+    });
+  });
+
   it("struct inline record conflicts with nested record", () => {
     const actualModule = parse(`
       struct Foo {
@@ -199,6 +251,7 @@ describe("module parser", () => {
       enum Enum {
         CONSTANT;
         removed;
+        /// Doc comment
         value_field: bool;
       }`);
 
@@ -225,6 +278,13 @@ describe("module parser", () => {
                   text: "value_field",
                 },
                 number: 3,
+                documentation: {
+                  docComments: [
+                    {
+                      text: "/// Doc comment",
+                    },
+                  ],
+                },
                 unresolvedType: {
                   kind: "primitive",
                 },
@@ -972,6 +1032,7 @@ describe("module parser", () => {
 
   it("method", () => {
     const actualModule = parse(`
+      /// Doc comment for Search
       method Search(req):resp;`);
 
     expect(actualModule).toMatch({
@@ -983,6 +1044,13 @@ describe("module parser", () => {
             kind: "method",
             name: {
               text: "Search",
+            },
+            documentation: {
+              docComments: [
+                {
+                  text: "/// Doc comment for Search",
+                },
+              ],
             },
             unresolvedRequestType: {
               kind: "record",
@@ -1168,6 +1236,7 @@ describe("module parser", () => {
 
   it("string constant", () => {
     const actualModule = parse(`
+      /// Doc comment for FOO
       const FOO: string = "Foo";`);
 
     expect(actualModule).toMatch({
@@ -1179,6 +1248,13 @@ describe("module parser", () => {
             kind: "constant",
             name: {
               text: "FOO",
+            },
+            documentation: {
+              docComments: [
+                {
+                  text: "/// Doc comment for FOO",
+                },
+              ],
             },
             unresolvedType: {
               kind: "primitive",
@@ -1216,6 +1292,25 @@ describe("module parser", () => {
             text: "foo",
           },
           expected: "UPPER_UNDERSCORE",
+        },
+      ],
+    });
+  });
+
+  it("doc comment not on declaration", () => {
+    const actualModule = parse(`
+      const FOO: [string] = [
+        /// Doc comment
+        "bar",
+      ];`);
+
+    expect(actualModule).toMatch({
+      errors: [
+        {
+          token: {
+            text: "/// Doc comment",
+          },
+          message: "Doc comments can only precede declarations",
         },
       ],
     });

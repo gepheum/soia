@@ -20,6 +20,7 @@ describe("tokenizer", () => {
       "",
       "const MINUS_ONE: int32 = -1;",
       "const MINUS_ONE_AND_A_HALF: float32 = -1.5;",
+      "/// Doc comment for STRUCT",
       "const STRUCT: Point2d = {| |};",
     ].join("\n");
 
@@ -274,6 +275,9 @@ describe("tokenizer", () => {
             text: ";",
           },
           {
+            text: "/// Doc comment for STRUCT",
+          },
+          {
             text: "const",
           },
           {
@@ -306,12 +310,9 @@ describe("tokenizer", () => {
 
     expect(
       actual.result.tokensWithComments.filter(
-        (t) => !t.text.startsWith("//") && !t.text.startsWith("/*"),
-      ),
-    ).toMatch(actual.result.tokens);
-    expect(
-      actual.result.tokensWithComments.filter(
-        (t) => t.text.startsWith("//") || t.text.startsWith("/*"),
+        (t) =>
+          t.text.startsWith("/*") ||
+          (t.text.startsWith("//") && !t.text.startsWith("///")),
       ),
     ).toMatch([
       {

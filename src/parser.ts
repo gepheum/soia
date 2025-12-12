@@ -2,6 +2,7 @@ import * as casing from "./casing.js";
 import { ModuleTokens } from "./tokenizer.js";
 import type {
   Declaration,
+  Documentation,
   ErrorSink,
   FieldPath,
   Import,
@@ -35,7 +36,7 @@ export function parseModule(moduleTokens: ModuleTokens): Result<MutableModule> {
   const errors: SkirError[] = [];
   const it = new TokenIterator(tokens, errors);
   const declarations = parseDeclarations(it, "module");
-  it.expectThenMove([""]);
+  it.expectThenNext([""]);
   // Create a mappinng from names to declarations, and check for duplicates.
   const nameToDeclaration: { [name: string]: MutableModuleLevelDeclaration } =
     {};
@@ -101,7 +102,7 @@ function parseDeclarations(
     t === "" || (parentNode !== "module" && t === "}");
   // Returns true if the token may be the last token of a valid statement.
   const isLastToken = (t: string): boolean => t === "}" || t === ";";
-  while (!isEndToken(it.peek())) {
+  while (!isEndToken(it.current)) {
     const startIndex = it.index;
     const declaration = parseDeclaration(it, parentNode);
     if (declaration !== null) {
@@ -124,18 +125,18 @@ function parseDeclarations(
     const noTokenWasConsumed = it.index === startIndex;
     if (noTokenWasConsumed) {
       it.next();
-      if (isLastToken(it.peekBack())) {
+      if (isLastToken(it.previous)) {
         // For example: two semicolons in a row.
         continue;
       }
     }
     if (
       noTokenWasConsumed ||
-      (it.peek() !== "" && !isLastToken(it.peekBack()))
+      (it.current !== "" && !isLastToken(it.previous))
     ) {
       let nestedLevel = 0;
       while (true) {
-        const token = it.peek();
+        const token = it.current;
         if (token === "") {
           break;
         }
@@ -158,6 +159,7 @@ function parseDeclaration(
   it: TokenIterator,
   parentNode: "module" | "struct" | "enum",
 ): MutableDeclaration | null {
+  const documentation = parseDocumentation(it);
   let recordType: "struct" | "enum" = "enum";
   const parentIsRoot = parentNode === "module";
   const expected = [
@@ -169,23 +171,28 @@ function parseDeclaration(
     /*5:*/ parentIsRoot ? "method" : null,
     /*6:*/ parentIsRoot ? "const" : null,
   ];
-  const match = it.expectThenMove(expected);
+  const match = it.expectThenNext(expected);
   switch (match.case) {
     case 0:
       recordType = "struct";
     // Falls through.
     case 1:
-      return parseRecord(it, recordType);
+      return parseRecord(it, recordType, documentation);
     case 2:
       return parseRemoved(it, match.token);
     case 3:
-      return parseField(it, match.token, parentNode as "struct" | "enum");
+      return parseField(
+        it,
+        match.token,
+        documentation,
+        parentNode as "struct" | "enum",
+      );
     case 4:
       return parseImport(it);
     case 5:
-      return parseMethod(it);
+      return parseMethod(it, documentation);
     case 6:
-      return parseConstant(it);
+      return parseConstant(it, documentation);
     default:
       return null;
   }
@@ -195,6 +202,7 @@ class RecordBuilder {
   constructor(
     private readonly recordName: Token,
     private readonly recordType: "struct" | "enum",
+    private readonly documentation: Documentation,
     private readonly stableId: number | null,
     private readonly errors: ErrorSink,
   ) {}
@@ -332,6 +340,7 @@ class RecordBuilder {
       key: key,
       name: this.recordName,
       recordType: this.recordType,
+      documentation: this.documentation,
       nameToDeclaration: this.nameToDeclaration,
       declarations: Object.values(this.nameToDeclaration),
       fields: fields,
@@ -360,6 +369,7 @@ interface InlineRecordContext {
 function parseRecord(
   it: TokenIterator,
   recordType: "struct" | "enum",
+  documentation: Documentation,
   inlineContext?: InlineRecordContext,
 ): MutableRecord | null {
   // A struct or an enum.
@@ -378,7 +388,7 @@ function parseRecord(
     };
   } else {
     // Read the name.
-    const nameMatch = it.expectThenMove([TOKEN_IS_IDENTIFIER]);
+    const nameMatch = it.expectThenNext([TOKEN_IS_IDENTIFIER]);
     if (nameMatch.case < 0) {
       return null;
     }
@@ -386,22 +396,28 @@ function parseRecord(
     nameToken = nameMatch.token;
   }
   let stableId: number | null = null;
-  if (it.peek() === "(") {
+  if (it.current === "(") {
     it.next();
     stableId = parseUint32(it);
     if (stableId < 0) {
       return null;
     }
-    if (it.expectThenMove([")"]).case < 0) {
+    if (it.expectThenNext([")"]).case < 0) {
       return null;
     }
   }
-  if (it.expectThenMove(["{"]).case < 0) {
+  if (it.expectThenNext(["{"]).case < 0) {
     return null;
   }
   const declarations = parseDeclarations(it, recordType);
-  it.expectThenMove(["}"]);
-  const builder = new RecordBuilder(nameToken, recordType, stableId, it.errors);
+  it.expectThenNext(["}"]);
+  const builder = new RecordBuilder(
+    nameToken,
+    recordType,
+    documentation,
+    stableId,
+    it.errors,
+  );
   for (const declaration of declarations) {
     builder.addDeclaration(declaration);
     if (declaration.kind === "field" && declaration.inlineRecord) {
@@ -414,6 +430,7 @@ function parseRecord(
 function parseField(
   it: TokenIterator,
   name: Token,
+  documentation: Documentation,
   recordType: "struct" | "enum",
 ): MutableField | null {
   // May only be undefined if the type is an enum.
@@ -429,7 +446,7 @@ function parseField(
       /*1:*/ numberAllowed ? "=" : null,
       /*2:*/ endAllowed ? ";" : null,
     ];
-    const match = it.expectThenMove(expected);
+    const match = it.expectThenNext(expected);
     switch (match.case) {
       case 0: {
         const inlineContext: InlineRecordContext = {
@@ -465,6 +482,7 @@ function parseField(
           kind: "field",
           name: name,
           number: number,
+          documentation: documentation,
           unresolvedType: type,
           // Will be populated at a later stage.
           type: undefined,
@@ -498,10 +516,10 @@ function parseTypeOrInlineRecord(
   type: UnresolvedType | undefined;
   inlineRecord: MutableRecord | undefined;
 } {
-  if (it.peek() === "struct" || it.peek() === "enum") {
-    const recordType = it.peek() as "struct" | "enum";
+  if (it.current === "struct" || it.current === "enum") {
+    const recordType = it.current as "struct" | "enum";
     it.next();
-    const inlineRecord = parseRecord(it, recordType, inlineContext);
+    const inlineRecord = parseRecord(it, recordType, EMPTY_DOC, inlineContext);
     const type: UnresolvedRecordRef | undefined = inlineRecord
       ? {
           kind: "record",
@@ -522,7 +540,7 @@ function parseTypeOrInlineRecord(
 }
 
 function parseType(it: TokenIterator): UnresolvedType | undefined {
-  const match = it.expectThenMove([
+  const match = it.expectThenNext([
     /*0:*/ "[",
     /*1:*/ TOKEN_IS_IDENTIFIER,
     /*2:*/ ".",
@@ -555,7 +573,7 @@ function parseType(it: TokenIterator): UnresolvedType | undefined {
   if (value === undefined) {
     return undefined;
   }
-  if (it.peek() === "?") {
+  if (it.current === "?") {
     it.next();
     return { kind: "optional", other: value };
   } else {
@@ -571,7 +589,7 @@ function parseArrayType(it: TokenIterator): UnresolvedArrayType | undefined {
   let key: FieldPath | undefined = undefined;
   while (true) {
     const keyAllowed = !key && item.kind === "record";
-    const match = it.expectThenMove([
+    const match = it.expectThenNext([
       /*0:*/ keyAllowed ? "|" : null,
       /*1:*/ "]",
     ]);
@@ -598,12 +616,12 @@ function parseFieldPath(
 ): FieldPath | undefined {
   const fieldNames: Token[] = [];
   while (true) {
-    const match = it.expectThenMove([TOKEN_IS_IDENTIFIER]);
+    const match = it.expectThenNext([TOKEN_IS_IDENTIFIER]);
     if (match.case < 0) {
       return undefined;
     }
     fieldNames.push(match.token);
-    if (it.peek() === ".") {
+    if (it.current === ".") {
       it.next();
     } else {
       break;
@@ -628,7 +646,7 @@ function parseRecordRef(
   const absolute = nameOrDot.text === ".";
   const nameParts: Token[] = [];
   if (nameOrDot.text === ".") {
-    const match = it.expectThenMove([TOKEN_IS_IDENTIFIER]);
+    const match = it.expectThenNext([TOKEN_IS_IDENTIFIER]);
     if (match.case < 0) {
       return undefined;
     }
@@ -636,9 +654,9 @@ function parseRecordRef(
   } else {
     nameParts.push(nameOrDot);
   }
-  while (it.peek() === ".") {
+  while (it.current === ".") {
     it.next();
-    const match = it.expectThenMove([TOKEN_IS_IDENTIFIER]);
+    const match = it.expectThenNext([TOKEN_IS_IDENTIFIER]);
     if (match.case < 0) {
       return undefined;
     }
@@ -648,7 +666,7 @@ function parseRecordRef(
 }
 
 function parseUint32(it: TokenIterator): number {
-  const match = it.expectThenMove([TOKEN_IS_POSITIVE_INT]);
+  const match = it.expectThenNext([TOKEN_IS_POSITIVE_INT]);
   if (match.case < 0) {
     return -1;
   }
@@ -686,7 +704,7 @@ function parseRemoved(it: TokenIterator, removedToken: Token): Removed | null {
       /*2:*/ expect === "?" || expect === "," || expect === ".." ? ";" : null,
       /*3:*/ expect === ".." ? ".." : null,
     ];
-    const match = it.expectThenMove(expected);
+    const match = it.expectThenNext(expected);
     switch (match.case) {
       case 0: {
         // A comma.
@@ -749,7 +767,7 @@ function parseRemoved(it: TokenIterator, removedToken: Token): Removed | null {
 }
 
 function parseImport(it: TokenIterator): Import | ImportAlias | null {
-  const tokenMatch = it.expectThenMove(["*", TOKEN_IS_IDENTIFIER]);
+  const tokenMatch = it.expectThenNext(["*", TOKEN_IS_IDENTIFIER]);
   switch (tokenMatch.case) {
     case 0:
       return parseImportAs(it);
@@ -761,18 +779,18 @@ function parseImport(it: TokenIterator): Import | ImportAlias | null {
 }
 
 function parseImportAs(it: TokenIterator): ImportAlias | null {
-  if (it.expectThenMove(["as"]).case < 0) return null;
-  const aliasMatch = it.expectThenMove([TOKEN_IS_IDENTIFIER]);
+  if (it.expectThenNext(["as"]).case < 0) return null;
+  const aliasMatch = it.expectThenNext([TOKEN_IS_IDENTIFIER]);
   if (aliasMatch.case < 0) {
     return null;
   }
   casing.validate(aliasMatch.token, "lower_underscore", it.errors);
-  if (it.expectThenMove(["from"]).case < 0) return null;
-  const modulePathMatch = it.expectThenMove([TOKEN_IS_STRING_LITERAL]);
+  if (it.expectThenNext(["from"]).case < 0) return null;
+  const modulePathMatch = it.expectThenNext([TOKEN_IS_STRING_LITERAL]);
   if (modulePathMatch.case < 0) {
     return null;
   }
-  it.expectThenMove([";"]);
+  it.expectThenNext([";"]);
   const modulePath = modulePathMatch.token;
   return {
     kind: "import-alias",
@@ -786,20 +804,20 @@ function parseImportGivenNames(
   it: TokenIterator,
 ): Import | null {
   const importedNames = [firstName];
-  while (it.peek() === ",") {
+  while (it.current === ",") {
     it.next();
-    const nameMatch = it.expectThenMove([TOKEN_IS_IDENTIFIER]);
+    const nameMatch = it.expectThenNext([TOKEN_IS_IDENTIFIER]);
     if (nameMatch.case < 0) {
       return null;
     }
     importedNames.push(nameMatch.token);
   }
-  if (it.expectThenMove(["from"]).case < 0) return null;
-  const modulePathMatch = it.expectThenMove([TOKEN_IS_STRING_LITERAL]);
+  if (it.expectThenNext(["from"]).case < 0) return null;
+  const modulePathMatch = it.expectThenNext([TOKEN_IS_STRING_LITERAL]);
   if (modulePathMatch.case < 0) {
     return null;
   }
-  it.expectThenMove([";"]);
+  it.expectThenNext([";"]);
   const modulePath = modulePathMatch.token;
   return {
     kind: "import",
@@ -808,14 +826,17 @@ function parseImportGivenNames(
   };
 }
 
-function parseMethod(it: TokenIterator): MutableMethod | null {
-  const nameMatch = it.expectThenMove([TOKEN_IS_IDENTIFIER]);
+function parseMethod(
+  it: TokenIterator,
+  documentation: Documentation,
+): MutableMethod | null {
+  const nameMatch = it.expectThenNext([TOKEN_IS_IDENTIFIER]);
   if (nameMatch.case < 0) {
     return null;
   }
   const name = nameMatch.token;
   casing.validate(name, "UpperCamel", it.errors);
-  if (it.expectThenMove(["("]).case < 0) {
+  if (it.expectThenNext(["("]).case < 0) {
     return null;
   }
   const requestTypeOrInlineRecord = parseTypeOrInlineRecord(it, {
@@ -826,7 +847,7 @@ function parseMethod(it: TokenIterator): MutableMethod | null {
   if (!requestType) {
     return null;
   }
-  if (it.expectThenMove([")"]).case < 0 || it.expectThenMove([":"]).case < 0) {
+  if (it.expectThenNext([")"]).case < 0 || it.expectThenNext([":"]).case < 0) {
     return null;
   }
   const responseTypeOrInlineRecord = parseTypeOrInlineRecord(it, {
@@ -838,14 +859,14 @@ function parseMethod(it: TokenIterator): MutableMethod | null {
     return null;
   }
 
-  const explicitNumber = it.expectThenMove(["=", ";"]).case === 0;
+  const explicitNumber = it.expectThenNext(["=", ";"]).case === 0;
   let number: number;
   if (explicitNumber) {
     number = parseUint32(it);
     if (number < 0) {
       return null;
     }
-    it.expectThenMove([";"]);
+    it.expectThenNext([";"]);
   } else {
     const methodName = nameMatch.token.text;
     const { modulePath } = nameMatch.token.line;
@@ -855,6 +876,7 @@ function parseMethod(it: TokenIterator): MutableMethod | null {
   return {
     kind: "method",
     name: nameMatch.token,
+    documentation: documentation,
     unresolvedRequestType: requestType,
     unresolvedResponseType: responseType,
     // Will be populated at a later stage.
@@ -868,30 +890,34 @@ function parseMethod(it: TokenIterator): MutableMethod | null {
   };
 }
 
-function parseConstant(it: TokenIterator): MutableConstant | null {
-  const nameMatch = it.expectThenMove([TOKEN_IS_IDENTIFIER]);
+function parseConstant(
+  it: TokenIterator,
+  documentation: Documentation,
+): MutableConstant | null {
+  const nameMatch = it.expectThenNext([TOKEN_IS_IDENTIFIER]);
   if (nameMatch.case < 0) {
     return null;
   }
   casing.validate(nameMatch.token, "UPPER_UNDERSCORE", it.errors);
-  if (it.expectThenMove([":"]).case < 0) {
+  if (it.expectThenNext([":"]).case < 0) {
     return null;
   }
   const type = parseType(it);
   if (!type) {
     return null;
   }
-  if (it.expectThenMove(["="]).case < 0) {
+  if (it.expectThenNext(["="]).case < 0) {
     return null;
   }
   const value = parseValue(it);
   if (value === null) {
     return null;
   }
-  it.expectThenMove([";"]);
+  it.expectThenNext([";"]);
   return {
     kind: "constant",
     name: nameMatch.token,
+    documentation: documentation,
     unresolvedType: type,
     type: undefined,
     value: value,
@@ -910,7 +936,7 @@ function parseValue(it: TokenIterator): MutableValue | null {
     /*6:*/ TOKEN_IS_NUMBER,
     /*7:*/ TOKEN_IS_STRING_LITERAL,
   ];
-  const match = it.expectThenMove(expected);
+  const match = it.expectThenNext(expected);
   switch (match.case) {
     case 0:
     case 1: {
@@ -958,17 +984,17 @@ function parseObjectValue(
   const closingToken = partial ? "|}" : "}";
   const entries: { [f: string]: MutableObjectEntry } = {};
   while (true) {
-    if (it.peek() === closingToken) {
+    if (it.current === closingToken) {
       it.next();
       return entries;
     }
-    const fieldNameMatch = it.expectThenMove([TOKEN_IS_IDENTIFIER]);
+    const fieldNameMatch = it.expectThenNext([TOKEN_IS_IDENTIFIER]);
     if (fieldNameMatch.case < 0) {
       return null;
     }
     const fieldNameToken = fieldNameMatch.token;
     const fieldName = fieldNameMatch.token.text;
-    if (it.expectThenMove([":"]).case < 0) {
+    if (it.expectThenNext([":"]).case < 0) {
       return null;
     }
     const value = parseValue(it);
@@ -985,7 +1011,7 @@ function parseObjectValue(
       name: fieldNameToken,
       value: value,
     };
-    const endMatch = it.expectThenMove([",", closingToken]);
+    const endMatch = it.expectThenNext([",", closingToken]);
     if (endMatch.case < 0) {
       return null;
     }
@@ -996,7 +1022,7 @@ function parseObjectValue(
 }
 
 function parseArrayValue(it: TokenIterator): MutableValue[] | null {
-  if (it.peek() === "]") {
+  if (it.current === "]") {
     it.next();
     return [];
   }
@@ -1007,19 +1033,34 @@ function parseArrayValue(it: TokenIterator): MutableValue[] | null {
       return null;
     }
     items.push(item);
-    const match = it.expectThenMove([",", "]"]);
+    const match = it.expectThenNext([",", "]"]);
     if (match.case < 0) {
       return null;
     }
     if (match.token.text === "]") {
       return items;
     }
-    if (it.peek() === "]") {
+    if (it.current === "]") {
       it.next();
       return items;
     }
   }
 }
+
+function parseDocumentation(it: TokenIterator): Documentation {
+  const docComments: Token[] = [];
+  while (it.current.startsWith("///")) {
+    docComments.push(it.currentToken);
+    it.next();
+  }
+  return {
+    docComments: docComments,
+  };
+}
+
+const EMPTY_DOC: Documentation = {
+  docComments: [],
+};
 
 abstract class TokenPredicate {
   abstract matches(token: string): boolean;
@@ -1092,10 +1133,18 @@ class TokenIterator {
   //
   // If the current token matches any predicate, i.e. if the index is not -1,
   // moves to the next token before returning. Otherwise, registers an error.
-  expectThenMove(
+  expectThenNext(
     expected: ReadonlyArray<string | TokenPredicate | null>,
   ): TokenMatch {
-    const token = this.tokens[this.tokenIndex]!;
+    let token = this.tokens[this.tokenIndex]!;
+    while (token.text.startsWith("///")) {
+      this.errors.push({
+        token: token,
+        message: "Doc comments can only precede declarations",
+      });
+      ++this.tokenIndex;
+      token = this.tokens[this.tokenIndex]!;
+    }
     for (let i = 0; i < expected.length; ++i) {
       const e = expected[i];
       if (e === null) {
@@ -1138,11 +1187,15 @@ class TokenIterator {
     };
   }
 
-  peek(): string {
-    return this.tokens[this.tokenIndex]!.text;
+  get currentToken(): Token {
+    return this.tokens[this.tokenIndex]!;
   }
 
-  peekBack(): string {
+  get current(): string {
+    return this.currentToken.text;
+  }
+
+  get previous(): string {
     return this.tokens[this.tokenIndex - 1]!.text;
   }
 

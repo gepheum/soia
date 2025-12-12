@@ -253,6 +253,7 @@ export interface MutableField<Mutable extends boolean = true> {
   readonly kind: "field";
   readonly name: Token;
   readonly number: number;
+  readonly documentation: Documentation<Mutable>;
   /** May only be undefined if the field is a constant in an enum. */
   readonly unresolvedType: UnresolvedType | undefined;
   /** May only be undefined if the field is a constant in an enum. */
@@ -318,6 +319,7 @@ export interface Record<Mutable extends boolean = boolean> {
   readonly key: RecordKey;
   readonly name: Token;
   readonly recordType: "struct" | "enum";
+  readonly documentation: Documentation<Mutable>;
   /** Maps a field or nested record name to the corresponding declaration. */
   readonly nameToDeclaration: { [n: string]: RecordLevelDeclaration<Mutable> };
   readonly declarations: ReadonlyArray<RecordLevelDeclaration<Mutable>>;
@@ -372,6 +374,7 @@ export type ImportAlias<Mutable extends boolean = boolean> =
 export interface MutableMethod<Mutable extends boolean = true> {
   readonly kind: "method";
   readonly name: Token;
+  readonly documentation: Documentation<Mutable>;
   readonly unresolvedRequestType: UnresolvedType;
   readonly unresolvedResponseType: UnresolvedType;
   requestType: ResolvedType<Mutable> | undefined;
@@ -391,6 +394,7 @@ export type Method<Mutable extends boolean = boolean> = //
 export interface MutableConstant<Mutable extends boolean = true> {
   readonly kind: "constant";
   readonly name: Token;
+  readonly documentation: Documentation<Mutable>;
   readonly unresolvedType: UnresolvedType;
   type: ResolvedType<Mutable> | undefined;
   readonly value: Value;
@@ -462,6 +466,10 @@ export type MutableValue = Value<true>;
 
 /** Result of serializing a skir value to dense JSON format. */
 export type DenseJson = null | boolean | number | string | readonly DenseJson[];
+
+export interface Documentation<Mutable extends boolean = boolean> {
+  docComments: readonly Token[];
+}
 
 /** A declaration which can appear at the top-level of a module. */
 export type ModuleLevelDeclaration<Mutable extends boolean = boolean> =

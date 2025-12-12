@@ -2,7 +2,9 @@ import { unquoteAndUnescape } from "./literals.js";
 import type { CodeLine, ErrorSink, Result, SkirError, Token } from "./types.js";
 
 export interface ModuleTokens {
+  /// Includes regular comments and doc comments.
   readonly tokens: readonly Token[];
+  /// Includes both kinds of comments.
   readonly tokensWithComments: readonly Token[];
   readonly sourceCode: string;
   readonly modulePath: string;
@@ -127,7 +129,7 @@ export function tokenizeModule(
 
   return {
     result: {
-      tokens: tokens.filter((t) => !isComment(t.originalText)),
+      tokens: tokens.filter((t) => !isRegularComment(t.originalText)),
       tokensWithComments: tokens,
       sourceCode: sourceCode,
       modulePath: modulePath,
@@ -180,8 +182,11 @@ function validateWord(token: Token, errors: ErrorSink): boolean {
   return true;
 }
 
-function isComment(token: string): boolean {
-  return token.startsWith("//") || token.startsWith("/*");
+function isRegularComment(token: string): boolean {
+  return (
+    token.startsWith("/*") ||
+    (token.startsWith("//") && !token.startsWith("///"))
+  );
 }
 
 class Lines {
