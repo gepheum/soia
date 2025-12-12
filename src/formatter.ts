@@ -1,11 +1,24 @@
 import { ModuleTokens } from "./tokenizer.js";
 import type { Token } from "./types.js";
 
+export interface FormattedModule {
+  readonly newSourceCode: string;
+  /// For VSCode extension: text edits to convert the original source code into
+  // the formatted source code.
+  readonly textEdits: readonly TextEdit[];
+}
+
+export interface TextEdit {
+  readonly oldStart: number;
+  readonly oldEnd: number;
+  readonly newText: string;
+}
+
 /**
  * Formats the given module and returns the new source code.
- * Preserves token ordering and number of tokens.
+ * Preserves token ordering.
  */
-export function formatModule(moduleTokens: ModuleTokens): string {
+export function formatModule(moduleTokens: ModuleTokens): FormattedModule {
   const tokens = moduleTokens.tokensWithComments;
 
   const context: Context = {
@@ -13,7 +26,21 @@ export function formatModule(moduleTokens: ModuleTokens): string {
     indentStack: [{ indent: "" }],
   };
 
-  let result = normalizeToken(tokens[0]!.text, "");
+  let newSourceCode = "";
+  const textEdits: TextEdit[] = [];
+
+  const appendToken: (t: Token) => void = (t: Token) => {
+    const newToken = normalizeToken(t.text);
+    if (newToken !== t.text) {
+      textEdits.push({
+        oldStart: t.position,
+        oldEnd: t.position + t.text.length,
+        newText: newToken,
+      });
+    }
+    newSourceCode += newToken;
+  };
+  appendToken(tokens[0]!);
 
   for (let i = 1; i < tokens.length; i++) {
     const token = tokens[i - 1]!;
@@ -29,21 +56,43 @@ export function formatModule(moduleTokens: ModuleTokens): string {
       }
     }
 
-    let space = getWhitespaceAfterToken(token, next, nextNonComment!, context);
+    // Determine the text to add after 'token' and before 'next': a possible
+    // trailing comma followed by whitespace.
+    let newSeparator = shouldAddTrailingComma(token, nextNonComment!, context)
+      ? ","
+      : "";
+    newSeparator += getWhitespaceAfterToken(
+      token,
+      next,
+      nextNonComment!,
+      context,
+    );
     const topOfStack = context.indentStack.at(-1)!;
-    if (space === "\n" || space === "\n\n") {
-      space = space + topOfStack.indent;
+    if (newSeparator.endsWith("\n")) {
+      newSeparator = newSeparator + topOfStack.indent;
     }
 
-    // Add trailing comma if needed
-    if (shouldAddTrailingComma(token, nextNonComment!, context)) {
-      result += ",";
+    const oldSeparator = moduleTokens.sourceCode.slice(
+      token.position + token.text.length,
+      next.position,
+    );
+    if (oldSeparator !== newSeparator) {
+      textEdits.push({
+        oldStart: token.position + token.text.length,
+        oldEnd: next.position,
+        newText: newSeparator,
+      });
     }
 
-    result += space + normalizeToken(next.text, topOfStack.indent);
+    newSourceCode += newSeparator;
+
+    appendToken(next);
   }
 
-  return result;
+  return {
+    newSourceCode: newSourceCode,
+    textEdits: textEdits,
+  };
 }
 
 type Context = {
@@ -184,7 +233,7 @@ function shouldAddTrailingComma(
 
 function oneOrTwoLineBreaks(first: Token, second: Token): "\n" | "\n\n" {
   const firstLineNumber =
-    first.line.lineNumber + first.originalText.split("\n").length - 1;
+    first.line.lineNumber + first.text.split("\n").length - 1;
   if (
     firstLineNumber < second.line.lineNumber - 1 &&
     (isComment(second) || /^[A-Za-z]/.test(second.text))
@@ -199,7 +248,7 @@ function isComment(token: Token): boolean {
   return token.text.startsWith("//") || token.text.startsWith("/*");
 }
 
-function normalizeToken(token: string, indent: string): string {
+function normalizeToken(token: string): string {
   if (token.startsWith("//")) {
     // Make sure there is a space between the double slash and the comment text.
     if (

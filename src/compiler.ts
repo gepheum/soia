@@ -297,7 +297,7 @@ async function format(root: string, mode: "fix" | "check"): Promise<void> {
       renderErrors(tokens.errors);
       process.exit(1);
     }
-    const formattedCode = formatModule(tokens.result);
+    const formattedCode = formatModule(tokens.result).newSourceCode;
     pathToFormatResult.set(skirFile.fullpath(), {
       formattedCode: formattedCode,
       alreadyFormatted: formattedCode === unformattedCode,
