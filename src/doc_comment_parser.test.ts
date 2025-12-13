@@ -75,12 +75,8 @@ describe("doc_comment_parser", () => {
           { kind: "text", text: "See " },
           {
             kind: "reference",
-            tokens: [
-              { text: "." },
-              { text: "foo" },
-              { text: "." },
-              { text: "Bar" },
-            ],
+            nameChain: [{ text: "foo" }, { text: "Bar" }],
+            absolute: true,
           },
           { kind: "text", text: " for details" },
         ],
@@ -99,7 +95,8 @@ describe("doc_comment_parser", () => {
           {},
           {
             kind: "reference",
-            tokens: [{ text: "Foo" }],
+            nameChain: [{ text: "Foo" }],
+            absolute: false,
           },
           {},
         ],
@@ -111,9 +108,16 @@ describe("doc_comment_parser", () => {
     const tokens = [makeToken("/// See [ .foo ] for details")];
     const result = parseDocComments(tokens);
 
-    expect(
-      result.errors[0]?.message?.includes("Invalid character ' ' in reference"),
-    ).toBe(true);
+    expect(result).toMatch({
+      errors: [
+        {
+          token: {
+            text: "[ .foo ]",
+          },
+          message: "Invalid character in reference at column 10",
+        },
+      ],
+    });
   });
 
   it("parses escaped brackets", () => {
@@ -164,32 +168,64 @@ describe("doc_comment_parser", () => {
     const tokens = [makeToken("/// See [] for details")];
     const result = parseDocComments(tokens);
 
-    expect(result.errors[0]).toMatch({ message: "Empty reference" });
+    expect(result).toMatch({
+      result: {},
+      errors: [
+        {
+          token: {
+            text: "]",
+          },
+          expected: "identifier or '.'",
+        },
+      ],
+    });
   });
 
   it("reports error for unterminated reference", () => {
     const tokens = [makeToken("/// See [.foo.Bar")];
     const result = parseDocComments(tokens);
 
-    expect(result.errors[0]).toMatch({ message: "Unterminated reference" });
+    expect(result).toMatch({
+      result: {
+        pieces: [
+          { kind: "text", text: "See " },
+          { kind: "reference", nameChain: [], absolute: true },
+        ],
+      },
+      errors: [{ message: "Unterminated reference" }],
+    });
   });
 
   it("reports error for invalid character in reference", () => {
     const tokens = [makeToken("/// See [foo@bar] for details")];
     const result = parseDocComments(tokens);
 
-    expect(
-      result.errors[0]?.message?.includes("Invalid character '@' in reference"),
-    ).toBe(true);
+    expect(result).toMatch({
+      errors: [
+        {
+          token: {
+            text: "[foo@bar]",
+          },
+          message: "Invalid character in reference at column 13",
+        },
+      ],
+    });
   });
 
   it("rejects digit at start of word in reference", () => {
     const tokens = [makeToken("/// See [.foo.9Bar] for details")];
     const result = parseDocComments(tokens);
 
-    expect(
-      result.errors[0]?.message?.includes("Invalid character '9' in reference"),
-    ).toBe(true);
+    expect(result).toMatch({
+      errors: [
+        {
+          token: {
+            text: "[.foo.9Bar]",
+          },
+          message: "Invalid character in reference at column 15",
+        },
+      ],
+    });
   });
 
   it("allows underscore and digits in word after first letter", () => {
@@ -203,7 +239,8 @@ describe("doc_comment_parser", () => {
           {},
           {
             kind: "reference",
-            tokens: [{ text: "Foo_Bar_123" }],
+            nameChain: [{ text: "Foo_Bar_123" }],
+            absolute: false,
           },
           {},
         ],
@@ -260,8 +297,23 @@ describe("doc_comment_parser", () => {
     ];
     const result = parseDocComments(tokens);
 
-    expect(result.errors.length).toBe(1);
-    expect(result.result.pieces.length > 0).toBe(true);
+    expect(result).toMatch({
+      errors: [
+        {
+          token: {
+            text: "[@ but",
+            position: 12,
+          },
+          message: "Unterminated reference",
+        },
+        {
+          token: {
+            text: "[@ but",
+          },
+          message: "Invalid character in reference at column 14",
+        },
+      ],
+    });
   });
 
   it("handles reference at start of comment", () => {
@@ -302,7 +354,8 @@ describe("doc_comment_parser", () => {
           { kind: "text", text: "End with " },
           {
             kind: "reference",
-            tokens: [{ text: "Reference" }],
+            nameChain: [{ text: "Reference" }],
+            absolute: false,
           },
           { kind: "text", text: "\nand continue text" },
         ],
@@ -337,7 +390,8 @@ describe("doc_comment_parser", () => {
         pieces: [
           {
             kind: "reference",
-            tokens: [{ text: "Foo", position: 105 }],
+            nameChain: [{ text: "Foo", position: 105 }],
+            absolute: false,
           },
         ],
       },
@@ -355,7 +409,8 @@ describe("doc_comment_parser", () => {
         pieces: [
           {
             kind: "reference",
-            tokens: [{ text: "Foo", position: 104 }],
+            nameChain: [{ text: "Foo", position: 104 }],
+            absolute: false,
           },
         ],
       },
@@ -366,16 +421,34 @@ describe("doc_comment_parser", () => {
     const tokens = [makeToken("/// [@invalid]", 100)];
     const result = parseDocComments(tokens);
 
-    // Error should be at position 100 + 3 (///) + 1 (space) + 1 (bracket) = 105 for @
-    expect(result.errors[0]?.token.position).toBe(105);
+    // Error should be at position 100 + 3 (///) + 1 (space) = 104
+    expect(result).toMatch({
+      errors: [
+        {
+          token: {
+            text: "[@invalid]",
+            position: 104,
+          },
+        },
+      ],
+    });
   });
 
   it("preserves correct error positions without space after ///", () => {
     const tokens = [makeToken("///[@invalid]", 100)];
     const result = parseDocComments(tokens);
 
-    // Error should be at position 100 + 3 (///) + 1 (bracket) = 104 for @
-    expect(result.errors[0]?.token.position).toBe(104);
+    // Error should be at position 100 + 3 (///) = 103
+    expect(result).toMatch({
+      errors: [
+        {
+          token: {
+            text: "[@invalid]",
+            position: 103,
+          },
+        },
+      ],
+    });
   });
 
   it("parses multiple references on different lines", () => {
@@ -392,12 +465,14 @@ describe("doc_comment_parser", () => {
           { kind: "text", text: "See " },
           {
             kind: "reference",
-            tokens: [{ text: "Ref1" }],
+            nameChain: [{ text: "Ref1" }],
+            absolute: false,
           },
           { kind: "text", text: " and\nalso " },
           {
             kind: "reference",
-            tokens: [{ text: "Ref2" }],
+            nameChain: [{ text: "Ref2" }],
+            absolute: false,
           },
           { kind: "text", text: " here" },
         ],
@@ -409,7 +484,10 @@ describe("doc_comment_parser", () => {
     const tokens = [makeToken("/// See [.foo.Bar")];
     const result = parseDocComments(tokens);
 
-    expect(result.errors[0]).toMatch({ message: "Unterminated reference" });
+    expect(result).toMatch({
+      result: {},
+      errors: [{ message: "Unterminated reference" }],
+    });
   });
 
   it("sets docComment field in reference", () => {

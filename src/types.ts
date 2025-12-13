@@ -495,7 +495,13 @@ export interface MutableDocumentationReference {
   readonly kind: "reference";
   readonly docComment: Token;
   readonly referenceRange: Token;
-  readonly tokens: readonly Token[];
+  /** Chain of symbol names in the reference. Empty if there was an error. */
+  readonly nameChain: readonly Token[];
+  /**
+   * True if the reference starts with a dot.
+   * Means that the first symbol is to be found at the top-level of the module.
+   */
+  readonly absolute: boolean;
   referee: Record | Method | Constant | RecordField | undefined;
 }
 
