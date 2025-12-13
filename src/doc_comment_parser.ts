@@ -1,6 +1,7 @@
 import {
   Documentation,
   DocumentationPiece,
+  DocumentationReference,
   Result,
   SkirError,
   Token,
@@ -97,113 +98,103 @@ class DocCommentsParser {
     }
   }
 
-  private parseReference(): DocumentationPiece | null {
+  private parseReference(): DocumentationReference | null {
     const referenceTokens: Token[] = [];
-    const openBracketDocComment = this.docComment;
     const openBracketCharIndex = this.charIndex;
+    const startPosition = this.docComment.position + openBracketCharIndex;
 
     // Move past the opening bracket
     this.charIndex++;
 
     const wordRegex = /[a-zA-Z][_a-zA-Z0-9]*/g;
-    const whitespaceRegex = /[ \t]*/g;
 
-    while (true) {
-      while (this.charIndex < this.content.length) {
-        // Skip whitespace
-        whitespaceRegex.lastIndex = this.charIndex;
-        const whitespaceMatch = whitespaceRegex.exec(this.content);
-        if (whitespaceMatch && whitespaceMatch[0].length > 0) {
-          this.charIndex += whitespaceMatch[0].length;
-        }
+    while (this.charIndex < this.content.length) {
+      const char = this.content[this.charIndex]!;
 
-        if (this.charIndex >= this.content.length) break;
+      if (char === "]") {
+        // End of reference
+        this.charIndex++;
 
-        const char = this.content[this.charIndex]!;
-
-        if (char === "]") {
-          // End of reference
-          this.charIndex++;
-
-          if (referenceTokens.length === 0) {
-            this.addError(
-              openBracketDocComment,
-              openBracketCharIndex,
-              "Empty reference",
-            );
-            return null;
-          }
-
-          return { kind: "reference", tokens: referenceTokens };
-        } else if (char === ".") {
-          // Dot token
-          const position = this.docComment.position + this.charIndex;
-          referenceTokens.push({
-            text: ".",
-            originalText: ".",
-            position: position,
-            line: this.docComment.line,
-            colNumber: position - this.docComment.line.position,
-          });
-          this.charIndex++;
-        } else if (/^[a-zA-Z]/.test(char)) {
-          // Start of a word token - use regex to match the whole word
-          wordRegex.lastIndex = this.charIndex;
-          const match = wordRegex.exec(this.content);
-          const word = match![0];
-          const position = this.docComment.position + this.charIndex;
-          referenceTokens.push({
-            text: word,
-            originalText: word,
-            position: position,
-            line: this.docComment.line,
-            colNumber: position - this.docComment.line.position,
-          });
-          this.charIndex += word.length;
-        } else {
-          // Invalid character in reference
-          const position = this.docComment.position + this.charIndex;
-          this.errors.push({
-            token: {
-              text: char,
-              originalText: char,
-              position: position,
-              line: this.docComment.line,
-              colNumber: position - this.docComment.line.position,
-            },
-            message: `Invalid character '${char}' in reference`,
-          });
-          this.charIndex++;
+        if (referenceTokens.length === 0) {
+          this.addError(openBracketCharIndex, "Empty reference");
           return null;
         }
-      }
 
-      // Reached end of line, check if there's a next line
-      if (!this.nextDocComment()) {
-        // Unterminated reference
-        this.addError(
-          openBracketDocComment,
+        const referenceText = this.content.slice(
           openBracketCharIndex,
-          "Unterminated reference",
+          this.charIndex,
         );
+
+        return {
+          kind: "reference",
+          tokens: referenceTokens,
+          referee: undefined,
+          docComment: this.docComment,
+          referenceRange: {
+            text: referenceText,
+            originalText: referenceText,
+            position: startPosition,
+            line: this.docComment.line,
+            colNumber: startPosition - this.docComment.line.position,
+          },
+        };
+      } else if (char === ".") {
+        // Dot token
+        const position = this.docComment.position + this.charIndex;
+        referenceTokens.push({
+          text: ".",
+          originalText: ".",
+          position: position,
+          line: this.docComment.line,
+          colNumber: position - this.docComment.line.position,
+        });
+        this.charIndex++;
+      } else if (/^[a-zA-Z]/.test(char)) {
+        // Start of a word token - use regex to match the whole word
+        wordRegex.lastIndex = this.charIndex;
+        const match = wordRegex.exec(this.content);
+        const word = match![0];
+        const position = this.docComment.position + this.charIndex;
+        referenceTokens.push({
+          text: word,
+          originalText: word,
+          position: position,
+          line: this.docComment.line,
+          colNumber: position - this.docComment.line.position,
+        });
+        this.charIndex += word.length;
+      } else {
+        // Invalid character in reference (including whitespace)
+        const position = this.docComment.position + this.charIndex;
+        this.errors.push({
+          token: {
+            text: char,
+            originalText: char,
+            position: position,
+            line: this.docComment.line,
+            colNumber: position - this.docComment.line.position,
+          },
+          message: `Invalid character '${char}' in reference`,
+        });
+        this.charIndex++;
         return null;
       }
     }
+
+    // Reached end of line without finding closing bracket
+    this.addError(openBracketCharIndex, "Unterminated reference");
+    return null;
   }
 
-  private addError(
-    docComment: Token,
-    charIndex: number,
-    message: string,
-  ): void {
-    const position = docComment.position + charIndex;
+  private addError(charIndex: number, message: string): void {
+    const position = this.docComment.position + charIndex;
     this.errors.push({
       token: {
         text: "[",
         originalText: "[",
         position: position,
-        line: docComment.line,
-        colNumber: position - docComment.line.position,
+        line: this.docComment.line,
+        colNumber: position - this.docComment.line.position,
       },
       message: message,
     });

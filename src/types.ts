@@ -467,19 +467,43 @@ export type MutableValue = Value<true>;
 /** Result of serializing a skir value to dense JSON format. */
 export type DenseJson = null | boolean | number | string | readonly DenseJson[];
 
+/**
+ * User-written documentation associated with a declaration.
+ * Result of parsing the doc comments.
+ */
 export interface Documentation<Mutable extends boolean = boolean> {
-  pieces: readonly DocumentationPiece[];
+  pieces: readonly DocumentationPiece<Mutable>[];
 }
 
-export type DocumentationPiece =
+export type MutableDocumentation = Documentation<true>;
+
+export type DocumentationPiece<Mutable extends boolean = boolean> =
   | {
       kind: "text";
       text: string;
     }
-  | {
-      kind: "reference";
-      tokens: readonly Token[];
-    };
+  | DocumentationReference<Mutable>;
+
+/** Reference to a field within a record. */
+export interface RecordField {
+  readonly kind: "field";
+  readonly record: Record;
+  readonly field: Field;
+}
+
+export interface MutableDocumentationReference {
+  readonly kind: "reference";
+  readonly docComment: Token;
+  readonly referenceRange: Token;
+  readonly tokens: readonly Token[];
+  referee: Record | Method | Constant | RecordField | undefined;
+}
+
+/** Reference to a symbol from a doc comment ( [...] ). */
+export type DocumentationReference<Mutable extends boolean = boolean> = //
+  Mutable extends true //
+    ? MutableDocumentationReference
+    : Readonly<MutableDocumentationReference>;
 
 /** A declaration which can appear at the top-level of a module. */
 export type ModuleLevelDeclaration<Mutable extends boolean = boolean> =

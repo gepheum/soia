@@ -107,28 +107,13 @@ describe("doc_comment_parser", () => {
     });
   });
 
-  it("parses reference with whitespace", () => {
-    const tokens = [makeToken("/// See [ .foo . Bar ] for details")];
+  it("rejects reference with whitespace", () => {
+    const tokens = [makeToken("/// See [ .foo ] for details")];
     const result = parseDocComments(tokens);
 
-    expect(result).toMatch({
-      errors: [],
-      result: {
-        pieces: [
-          {},
-          {
-            kind: "reference",
-            tokens: [
-              { text: "." },
-              { text: "foo" },
-              { text: "." },
-              { text: "Bar" },
-            ],
-          },
-          {},
-        ],
-      },
-    });
+    expect(
+      result.errors[0]?.message?.includes("Invalid character ' ' in reference"),
+    ).toBe(true);
   });
 
   it("parses escaped brackets", () => {
@@ -183,7 +168,7 @@ describe("doc_comment_parser", () => {
   });
 
   it("reports error for unterminated reference", () => {
-    const tokens = [makeToken("/// See [.foo.Bar for details")];
+    const tokens = [makeToken("/// See [.foo.Bar")];
     const result = parseDocComments(tokens);
 
     expect(result.errors[0]).toMatch({ message: "Unterminated reference" });
@@ -393,7 +378,7 @@ describe("doc_comment_parser", () => {
     expect(result.errors[0]?.token.position).toBe(104);
   });
 
-  it("parses multiple references across multiple lines", () => {
+  it("parses multiple references on different lines", () => {
     const tokens = [
       makeToken("/// See [Ref1] and"),
       makeToken("/// also [Ref2] here"),
@@ -420,67 +405,75 @@ describe("doc_comment_parser", () => {
     });
   });
 
-  it("parses reference split across multiple lines", () => {
-    const tokens = [
-      makeToken("/// See [.foo"),
-      makeToken("/// .Bar] for details"),
-    ];
-    const result = parseDocComments(tokens);
-
-    expect(result).toMatch({
-      errors: [],
-      result: {
-        pieces: [
-          { kind: "text", text: "See " },
-          {
-            kind: "reference",
-            tokens: [
-              { text: "." },
-              { text: "foo" },
-              { text: "." },
-              { text: "Bar" },
-            ],
-          },
-          { kind: "text", text: " for details" },
-        ],
-      },
-    });
-  });
-
-  it("parses reference split with whitespace across multiple lines", () => {
-    const tokens = [
-      makeToken("/// See [ .foo "),
-      makeToken("///   .Bar  ] for details"),
-    ];
-    const result = parseDocComments(tokens);
-
-    expect(result).toMatch({
-      errors: [],
-      result: {
-        pieces: [
-          {},
-          {
-            kind: "reference",
-            tokens: [
-              { text: "." },
-              { text: "foo" },
-              { text: "." },
-              { text: "Bar" },
-            ],
-          },
-          {},
-        ],
-      },
-    });
-  });
-
-  it("handles unterminated reference across multiple lines", () => {
-    const tokens = [
-      makeToken("/// See [.foo"),
-      makeToken("/// .Bar for details"),
-    ];
+  it("reports error for unterminated reference at end of line", () => {
+    const tokens = [makeToken("/// See [.foo.Bar")];
     const result = parseDocComments(tokens);
 
     expect(result.errors[0]).toMatch({ message: "Unterminated reference" });
+  });
+
+  it("sets docComment field in reference", () => {
+    const tokens = [makeToken("/// See [Foo] here")];
+    const result = parseDocComments(tokens);
+
+    expect(result).toMatch({
+      errors: [],
+      result: {
+        pieces: [
+          {},
+          {
+            kind: "reference",
+            docComment: tokens[0],
+          },
+          {},
+        ],
+      },
+    });
+  });
+
+  it("sets referenceRange field to include brackets", () => {
+    const tokens = [makeToken("/// See [.foo.Bar] here", 100)];
+    const result = parseDocComments(tokens);
+
+    // Position: 100 (start) + 4 (/// ) + 4 (See ) = 108
+    expect(result).toMatch({
+      errors: [],
+      result: {
+        pieces: [
+          {},
+          {
+            kind: "reference",
+            referenceRange: {
+              text: "[.foo.Bar]",
+              originalText: "[.foo.Bar]",
+              position: 108,
+              colNumber: 108,
+            },
+          },
+          {},
+        ],
+      },
+    });
+  });
+
+  it("referenceRange works without space after ///", () => {
+    const tokens = [makeToken("///[Foo]", 50)];
+    const result = parseDocComments(tokens);
+
+    // Position: 50 (start) + 3 (///) = 53
+    expect(result).toMatch({
+      errors: [],
+      result: {
+        pieces: [
+          {
+            kind: "reference",
+            referenceRange: {
+              text: "[Foo]",
+              position: 53,
+            },
+          },
+        ],
+      },
+    });
   });
 });

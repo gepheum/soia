@@ -18,6 +18,7 @@ import type {
   Method,
   Module,
   MutableArrayType,
+  MutableDocumentation,
   MutableModule,
   MutableRecord,
   MutableRecordLocation,
@@ -236,7 +237,6 @@ export class ModuleSet {
     const usedImports = new Set<string>();
     const typeResolver = new TypeResolver(
       module,
-      modulePath,
       this.modules,
       usedImports,
       errors,
@@ -262,6 +262,7 @@ export class ModuleSet {
           this.validateArrayKeys(type, errors);
         }
       }
+      this.resolveDocumentationReferences(record.documentation, module, errors);
     }
     // Resolve every request/response type of every method in the module.
     // Store the result in the Method object.
@@ -803,6 +804,19 @@ export class ModuleSet {
     }
   }
 
+  private resolveDocumentationReferences(
+    documentation: MutableDocumentation,
+    module: Module,
+    errors: ErrorSink,
+  ): void {
+    for (const piece of documentation.pieces) {
+      if (piece.kind !== "reference") {
+        continue;
+      }
+      // TODO...
+    }
+  }
+
   private readonly modules = new Map<string, Result<Module | null>>();
   private readonly mutableRecordMap = new Map<RecordKey, RecordLocation>();
   private readonly mutableResolvedModules: MutableModule[] = [];
@@ -920,7 +934,6 @@ function validateKeyedItems(
 class TypeResolver {
   constructor(
     private readonly module: Module,
-    private readonly modulePath: string,
     private readonly modules: Map<string, Result<Module | null>>,
     private readonly usedImports: Set<string>,
     private readonly errors: ErrorSink,
