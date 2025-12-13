@@ -166,34 +166,13 @@ describe("module parser", () => {
       result: {
         nameToDeclaration: {
           Foo: {
-            documentation: {
-              docComments: [
-                {
-                  text: "/// Doc comment",
-                },
-                {
-                  text: "/// for Foo",
-                },
-              ],
-            },
+            documentation: {},
             nameToDeclaration: {
               x: {
-                documentation: {
-                  docComments: [
-                    {
-                      text: "/// Doc comment for x",
-                    },
-                  ],
-                },
+                documentation: {},
               },
               y: {
-                documentation: {
-                  docComments: [
-                    {
-                      text: "/// Doc comment for y",
-                    },
-                  ],
-                },
+                documentation: {},
               },
             },
           },
@@ -278,13 +257,7 @@ describe("module parser", () => {
                   text: "value_field",
                 },
                 number: 3,
-                documentation: {
-                  docComments: [
-                    {
-                      text: "/// Doc comment",
-                    },
-                  ],
-                },
+                documentation: {},
                 unresolvedType: {
                   kind: "primitive",
                 },
@@ -1045,13 +1018,7 @@ describe("module parser", () => {
             name: {
               text: "Search",
             },
-            documentation: {
-              docComments: [
-                {
-                  text: "/// Doc comment for Search",
-                },
-              ],
-            },
+            documentation: {},
             unresolvedRequestType: {
               kind: "record",
               nameParts: [
@@ -1249,13 +1216,7 @@ describe("module parser", () => {
             name: {
               text: "FOO",
             },
-            documentation: {
-              docComments: [
-                {
-                  text: "/// Doc comment for FOO",
-                },
-              ],
-            },
+            documentation: {},
             unresolvedType: {
               kind: "primitive",
               primitive: "string",

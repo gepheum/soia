@@ -1,4 +1,5 @@
 import * as casing from "./casing.js";
+import { parseDocComments } from "./doc_comment_parser.js";
 import { ModuleTokens } from "./tokenizer.js";
 import type {
   Declaration,
@@ -1053,13 +1054,13 @@ function parseDocumentation(it: TokenIterator): Documentation {
     docComments.push(it.currentToken);
     it.next();
   }
-  return {
-    docComments: docComments,
-  };
+  const result = parseDocComments(docComments);
+  result.errors.forEach((e) => it.errors.push(e));
+  return result.result;
 }
 
 const EMPTY_DOC: Documentation = {
-  docComments: [],
+  pieces: [],
 };
 
 abstract class TokenPredicate {

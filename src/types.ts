@@ -468,8 +468,18 @@ export type MutableValue = Value<true>;
 export type DenseJson = null | boolean | number | string | readonly DenseJson[];
 
 export interface Documentation<Mutable extends boolean = boolean> {
-  docComments: readonly Token[];
+  pieces: readonly DocumentationPiece[];
 }
+
+export type DocumentationPiece =
+  | {
+      kind: "text";
+      text: string;
+    }
+  | {
+      kind: "reference";
+      tokens: readonly Token[];
+    };
 
 /** A declaration which can appear at the top-level of a module. */
 export type ModuleLevelDeclaration<Mutable extends boolean = boolean> =
