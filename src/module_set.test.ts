@@ -454,32 +454,6 @@ describe("module set", () => {
     expect(actual).toMatch({ errors: [] });
   });
 
-  it("field numbering constraint not satisfied", () => {
-    const fakeFileReader = new FakeFileReader();
-    fakeFileReader.pathToCode.set(
-      "path/to/root/path/to/module",
-      `
-        struct Foo { foo: int32; }
-        struct Bar { foo: Foo = 0; }
-      `,
-    );
-
-    const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
-    const actual = moduleSet.parseAndResolve("path/to/module");
-
-    expect(actual).toMatch({
-      errors: [
-        {
-          token: {
-            text: "Foo",
-          },
-          message:
-            "Field type references a struct with implicit numbering, but field belongs to a struct with explicit numbering",
-        },
-      ],
-    });
-  });
-
   describe("keyed arrays", () => {
     it("works", () => {
       const fakeFileReader = new FakeFileReader();

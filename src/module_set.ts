@@ -278,9 +278,6 @@ export class ModuleSet {
       // type depends on the record where the field is defined.
       // Store the result in the Field object.
       this.storeFieldRecursivity(record);
-      // If the record has explicit numbering, register an error if any field
-      // has a direct dependency on a record with implicit numbering.
-      this.verifyNumberingConstraint(record, errors);
       // Verify that the `key` field of every array type is valid.
       for (const field of record.fields) {
         const { type } = field;
@@ -413,46 +410,6 @@ export class ModuleSet {
         if (mode === "hard") break;
         this.collectTypeDeps(input.other, mode, out);
         break;
-      }
-    }
-  }
-
-  /**
-   * If the record has explicit numbering, register an error if any field has a
-   * direct dependency on a record with implicit numbering.
-   */
-  private verifyNumberingConstraint(record: Record, errors: ErrorSink): void {
-    if (record.numbering !== "explicit") {
-      return;
-    }
-    for (const field of record.fields) {
-      if (!field.type) continue;
-      const invalidRef = this.referencesImplicitlyNumberedRecord(field.type);
-      if (invalidRef) {
-        errors.push({
-          token: invalidRef.refToken,
-          message:
-            `Field type references a ${invalidRef.recordType} with implicit ` +
-            `numbering, but field belongs to a ${record.recordType} with ` +
-            `explicit numbering`,
-        });
-      }
-    }
-  }
-
-  private referencesImplicitlyNumberedRecord(
-    input: ResolvedType,
-  ): ResolvedRecordRef | false {
-    switch (input.kind) {
-      case "array":
-        return this.referencesImplicitlyNumberedRecord(input.item);
-      case "optional":
-        return this.referencesImplicitlyNumberedRecord(input.other);
-      case "primitive":
-        return false;
-      case "record": {
-        const record = this.recordMap.get(input.key)!.record;
-        return record.numbering === "implicit" && input;
       }
     }
   }
