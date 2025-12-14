@@ -1624,4 +1624,661 @@ describe("module set", () => {
       });
     });
   });
+
+  describe("doc comment references", () => {
+    it("resolves reference to enum field", () => {
+      const fakeFileReader = new FakeFileReader();
+      fakeFileReader.pathToCode.set(
+        "path/to/root/module",
+        `
+          /// Hello [Bar.OK]
+          struct Foo {
+            x: int32;
+          }
+
+          enum Bar { OK; }
+        `,
+      );
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
+      const actual = moduleSet.parseAndResolve("module");
+
+      const fooRecord = actual.result?.records.find(
+        (r) => r.record?.name.text === "Foo",
+      );
+      expect(fooRecord).toMatch({
+        record: {
+          name: { text: "Foo" },
+          doc: {
+            pieces: [
+              { kind: "text", text: "Hello " },
+              {
+                kind: "reference",
+                nameChain: [{ text: "Bar" }, { text: "OK" }],
+                referee: {
+                  kind: "field",
+                  field: { name: { text: "OK" } },
+                  record: { name: { text: "Bar" } },
+                },
+              },
+            ],
+          },
+        },
+      });
+      expect(actual.errors).toMatch([]);
+    });
+
+    it("resolves reference to sibling field", () => {
+      const fakeFileReader = new FakeFileReader();
+      fakeFileReader.pathToCode.set(
+        "path/to/root/module",
+        `
+          struct Foo {
+            x: int32;
+            /// Must be different from [x]
+            y: int32;
+          }
+        `,
+      );
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
+      const actual = moduleSet.parseAndResolve("module");
+
+      expect(actual).toMatch({
+        result: {
+          records: [
+            {
+              record: {
+                fields: [
+                  { name: { text: "x" } },
+                  {
+                    name: { text: "y" },
+                    doc: {
+                      pieces: [
+                        { kind: "text", text: "Must be different from " },
+                        {
+                          kind: "reference",
+                          nameChain: [{ text: "x" }],
+                          referee: {
+                            kind: "field",
+                            field: { name: { text: "x" } },
+                            record: { name: { text: "Foo" } },
+                          },
+                        },
+                      ],
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+        errors: [],
+      });
+    });
+
+    it("resolves reference to record", () => {
+      const fakeFileReader = new FakeFileReader();
+      fakeFileReader.pathToCode.set(
+        "path/to/root/module",
+        `
+          /// See [Bar] for details
+          struct Foo {
+            x: int32;
+          }
+
+          struct Bar {}
+        `,
+      );
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
+      const actual = moduleSet.parseAndResolve("module");
+
+      const fooRecord = actual.result?.records.find(
+        (r) => r.record?.name.text === "Foo",
+      );
+      expect(fooRecord).toMatch({
+        record: {
+          name: { text: "Foo" },
+          doc: {
+            pieces: [
+              { kind: "text", text: "See " },
+              {
+                kind: "reference",
+                nameChain: [{ text: "Bar" }],
+                referee: { kind: "record", name: { text: "Bar" } },
+              },
+              { kind: "text", text: " for details" },
+            ],
+          },
+        },
+      });
+      expect(actual.errors).toMatch([]);
+    });
+
+    it("resolves reference to nested record", () => {
+      const fakeFileReader = new FakeFileReader();
+      fakeFileReader.pathToCode.set(
+        "path/to/root/module",
+        `
+          /// Uses [Outer.Inner]
+          struct Foo {
+            x: int32;
+          }
+
+          struct Outer {
+            struct Inner {}
+          }
+        `,
+      );
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
+      const actual = moduleSet.parseAndResolve("module");
+
+      const fooRecord = actual.result?.records.find(
+        (r) => r.record?.name.text === "Foo",
+      );
+      expect(fooRecord).toMatch({
+        record: {
+          name: { text: "Foo" },
+          doc: {
+            pieces: [
+              { kind: "text", text: "Uses " },
+              {
+                kind: "reference",
+                nameChain: [{ text: "Outer" }, { text: "Inner" }],
+                referee: { kind: "record", name: { text: "Inner" } },
+              },
+            ],
+          },
+        },
+      });
+      expect(actual.errors).toMatch([]);
+    });
+
+    it("resolves absolute reference", () => {
+      const fakeFileReader = new FakeFileReader();
+      fakeFileReader.pathToCode.set(
+        "path/to/root/module",
+        `
+          struct Outer {
+            /// Reference to [.Bar]
+            struct Inner {}
+          }
+
+          struct Bar {}
+        `,
+      );
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
+      const actual = moduleSet.parseAndResolve("module");
+
+      const outerRecord = actual.result?.records.find(
+        (r) => r.record?.name.text === "Outer",
+      );
+      expect(outerRecord).toMatch({
+        record: {
+          name: { text: "Outer" },
+          nestedRecords: [
+            {
+              name: { text: "Inner" },
+              doc: {
+                pieces: [
+                  { kind: "text", text: "Reference to " },
+                  {
+                    kind: "reference",
+                    absolute: true,
+                    nameChain: [{ text: "Bar" }],
+                    referee: { kind: "record", name: { text: "Bar" } },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      });
+      expect(actual.errors).toMatch([]);
+    });
+
+    it("resolves reference to method", () => {
+      const fakeFileReader = new FakeFileReader();
+      fakeFileReader.pathToCode.set(
+        "path/to/root/module",
+        `
+          /// Calls [GetData]
+          struct Foo {}
+
+          method GetData(Foo): Foo;
+        `,
+      );
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
+      const actual = moduleSet.parseAndResolve("module");
+
+      expect(actual).toMatch({
+        result: {
+          records: [
+            {
+              record: {
+                name: { text: "Foo" },
+                doc: {
+                  pieces: [
+                    { kind: "text", text: "Calls " },
+                    {
+                      kind: "reference",
+                      nameChain: [{ text: "GetData" }],
+                      referee: { kind: "method", name: { text: "GetData" } },
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+        errors: [],
+      });
+    });
+
+    it("resolves reference to constant", () => {
+      const fakeFileReader = new FakeFileReader();
+      fakeFileReader.pathToCode.set(
+        "path/to/root/module",
+        `
+          /// Default is [DEFAULT_VALUE]
+          struct Foo {
+            x: int32;
+          }
+
+          const DEFAULT_VALUE: int32 = 42;
+        `,
+      );
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
+      const actual = moduleSet.parseAndResolve("module");
+
+      expect(actual).toMatch({
+        result: {
+          records: [
+            {
+              record: {
+                name: { text: "Foo" },
+                doc: {
+                  pieces: [
+                    { kind: "text", text: "Default is " },
+                    {
+                      kind: "reference",
+                      nameChain: [{ text: "DEFAULT_VALUE" }],
+                      referee: {
+                        kind: "constant",
+                        name: { text: "DEFAULT_VALUE" },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+        errors: [],
+      });
+    });
+
+    it("resolves reference from field type scope", () => {
+      const fakeFileReader = new FakeFileReader();
+      fakeFileReader.pathToCode.set(
+        "path/to/root/module",
+        `
+          struct Foo {
+            /// Uses [OK] from the Bar enum
+            bar: Bar;
+          }
+
+          enum Bar { OK; }
+        `,
+      );
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
+      const actual = moduleSet.parseAndResolve("module");
+
+      const fooRecord = actual.result?.records.find(
+        (r) => r.record?.name.text === "Foo",
+      );
+      expect(fooRecord).toMatch({
+        record: {
+          name: { text: "Foo" },
+          fields: [
+            {
+              name: { text: "bar" },
+              doc: {
+                pieces: [
+                  { kind: "text", text: "Uses " },
+                  {
+                    kind: "reference",
+                    nameChain: [{ text: "OK" }],
+                    referee: {
+                      kind: "field",
+                      field: { name: { text: "OK" } },
+                      record: { name: { text: "Bar" } },
+                    },
+                  },
+                  { kind: "text", text: " from the Bar enum" },
+                ],
+              },
+            },
+          ],
+        },
+      });
+      expect(actual.errors).toMatch([]);
+    });
+
+    it("resolves reference from method request type scope", () => {
+      const fakeFileReader = new FakeFileReader();
+      fakeFileReader.pathToCode.set(
+        "path/to/root/module",
+        `
+          struct Request {
+            x: int32;
+          }
+
+          struct Response {}
+
+          /// Input [x] must be positive
+          method DoWork(Request): Response;
+        `,
+      );
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
+      const actual = moduleSet.parseAndResolve("module");
+
+      expect(actual).toMatch({
+        result: {
+          methods: [
+            {
+              name: { text: "DoWork" },
+              doc: {
+                pieces: [
+                  { kind: "text", text: "Input " },
+                  {
+                    kind: "reference",
+                    nameChain: [{ text: "x" }],
+                    referee: {
+                      kind: "field",
+                      field: { name: { text: "x" } },
+                      record: { name: { text: "Request" } },
+                    },
+                  },
+                  { kind: "text", text: " must be positive" },
+                ],
+              },
+            },
+          ],
+        },
+        errors: [],
+      });
+    });
+
+    it("resolves reference from constant type scope", () => {
+      const fakeFileReader = new FakeFileReader();
+      fakeFileReader.pathToCode.set(
+        "path/to/root/module",
+        `
+          enum Status { OK; }
+
+          /// Default status is [OK]
+          const DEFAULT_STATUS: Status = "OK";
+        `,
+      );
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
+      const actual = moduleSet.parseAndResolve("module");
+
+      expect(actual).toMatch({
+        result: {
+          constants: [
+            {
+              name: { text: "DEFAULT_STATUS" },
+              doc: {
+                pieces: [
+                  { kind: "text", text: "Default status is " },
+                  {
+                    kind: "reference",
+                    nameChain: [{ text: "OK" }],
+                    referee: {
+                      kind: "field",
+                      field: { name: { text: "OK" } },
+                      record: { name: { text: "Status" } },
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+        errors: [],
+      });
+    });
+
+    it("resolves multiple references in same doc comment", () => {
+      const fakeFileReader = new FakeFileReader();
+      fakeFileReader.pathToCode.set(
+        "path/to/root/module",
+        `
+          /// Compare [Foo] and [Bar]
+          struct Baz {}
+
+          struct Foo {}
+          struct Bar {}
+        `,
+      );
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
+      const actual = moduleSet.parseAndResolve("module");
+
+      const bazRecord = actual.result?.records.find(
+        (r) => r.record?.name.text === "Baz",
+      );
+      expect(bazRecord).toMatch({
+        record: {
+          name: { text: "Baz" },
+          doc: {
+            pieces: [
+              { kind: "text", text: "Compare " },
+              {
+                kind: "reference",
+                nameChain: [{ text: "Foo" }],
+                referee: { kind: "record", name: { text: "Foo" } },
+              },
+              { kind: "text", text: " and " },
+              {
+                kind: "reference",
+                nameChain: [{ text: "Bar" }],
+                referee: { kind: "record", name: { text: "Bar" } },
+              },
+            ],
+          },
+        },
+      });
+      expect(actual.errors).toMatch([]);
+    });
+
+    it("resolves reference through import alias", () => {
+      const fakeFileReader = new FakeFileReader();
+      fakeFileReader.pathToCode.set(
+        "path/to/root/module",
+        `
+          import * as other from "./other";
+
+          /// Uses [other.Foo]
+          struct Bar {}
+        `,
+      );
+      fakeFileReader.pathToCode.set(
+        "path/to/root/other",
+        `
+          struct Foo {}
+        `,
+      );
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
+      const actual = moduleSet.parseAndResolve("module");
+
+      const barRecord = actual.result?.records.find(
+        (r) => r.record?.name.text === "Bar",
+      );
+      expect(barRecord).toMatch({
+        record: {
+          name: { text: "Bar" },
+          doc: {
+            pieces: [
+              { kind: "text", text: "Uses " },
+              {
+                kind: "reference",
+                nameChain: [{ text: "other" }, { text: "Foo" }],
+                referee: { kind: "record", name: { text: "Foo" } },
+              },
+            ],
+          },
+        },
+      });
+      expect(actual.errors).toMatch([{ message: "Unused import alias" }]);
+    });
+
+    it("resolves reference through import", () => {
+      const fakeFileReader = new FakeFileReader();
+      fakeFileReader.pathToCode.set(
+        "path/to/root/module",
+        `
+          import * as other from "./other";
+
+          /// Uses [other.Foo]
+          struct Bar {}
+        `,
+      );
+      fakeFileReader.pathToCode.set(
+        "path/to/root/other",
+        `
+          struct Foo {}
+        `,
+      );
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
+      const actual = moduleSet.parseAndResolve("module");
+
+      const barRecord = actual.result?.records.find(
+        (r) => r.record?.name.text === "Bar",
+      );
+      expect(barRecord).toMatch({
+        record: {
+          name: { text: "Bar" },
+          doc: {
+            pieces: [
+              { kind: "text", text: "Uses " },
+              {
+                kind: "reference",
+                nameChain: [{ text: "other" }, { text: "Foo" }],
+                referee: { kind: "record", name: { text: "Foo" } },
+              },
+            ],
+          },
+        },
+      });
+      expect(actual.errors).toMatch([{ message: "Unused import alias" }]);
+    });
+
+    it("reports error for unresolved reference", () => {
+      const fakeFileReader = new FakeFileReader();
+      fakeFileReader.pathToCode.set(
+        "path/to/root/module",
+        `
+          /// See [NonExistent]
+          struct Foo {}
+        `,
+      );
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
+      const actual = moduleSet.parseAndResolve("module");
+
+      expect(actual).toMatch({
+        result: {},
+        errors: [
+          {
+            token: { text: "[NonExistent]" },
+            message: "Cannot resolve reference",
+          },
+        ],
+      });
+    });
+
+    it("reports error for unresolved nested reference", () => {
+      const fakeFileReader = new FakeFileReader();
+      fakeFileReader.pathToCode.set(
+        "path/to/root/module",
+        `
+          /// See [Bar.NonExistent]
+          struct Foo {}
+
+          struct Bar {}
+        `,
+      );
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
+      const actual = moduleSet.parseAndResolve("module");
+
+      expect(actual).toMatch({
+        result: {},
+        errors: [
+          {
+            token: { text: "[Bar.NonExistent]" },
+            message: "Cannot resolve reference",
+          },
+        ],
+      });
+    });
+
+    it("prioritizes nested scope over module scope", () => {
+      const fakeFileReader = new FakeFileReader();
+      fakeFileReader.pathToCode.set(
+        "path/to/root/module",
+        `
+          struct Outer {
+            struct Inner {
+              /// Reference to [Foo] (nested)
+              x: int32;
+            }
+            struct Foo {}
+          }
+
+          struct Foo {}
+        `,
+      );
+      const moduleSet = ModuleSet.create(fakeFileReader, "path/to/root");
+      const actual = moduleSet.parseAndResolve("module");
+
+      // Find the Outer record
+      const outerRecord = actual.result?.records.find(
+        (r) => r.record.name.text === "Outer",
+      );
+      expect(outerRecord).toMatch({
+        record: {
+          name: { text: "Outer" },
+          nestedRecords: [
+            {
+              name: { text: "Inner" },
+              fields: [
+                {
+                  name: { text: "x" },
+                  doc: {
+                    pieces: [
+                      { kind: "text", text: "Reference to " },
+                      {
+                        kind: "reference",
+                        nameChain: [{ text: "Foo" }],
+                        // Should resolve to Outer.Foo, not the top-level Foo
+                        referee: {
+                          kind: "record",
+                          name: { text: "Foo" },
+                        },
+                      },
+                      { kind: "text", text: " (nested)" },
+                    ],
+                  },
+                },
+              ],
+            },
+            {
+              name: { text: "Foo" },
+            },
+          ],
+        },
+      });
+      expect(actual).toMatch({
+        errors: [],
+      });
+    });
+  });
 });

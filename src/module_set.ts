@@ -978,6 +978,7 @@ export class ModuleSet {
       case "method": {
         scopes.push(module);
         pushTypeToScopes(documentee.requestType);
+        pushTypeToScopes(documentee.responseType);
         break;
       }
       case "record": {
@@ -993,15 +994,19 @@ export class ModuleSet {
       if (nameChain.length <= 0) {
         continue;
       }
+      let resolved = false;
       for (const scope of scopes) {
         if (tryResolveReference(reference, nameChain, scope)) {
-          return;
+          resolved = true;
+          break;
         }
       }
-      errors.push({
-        token: reference.referenceRange,
-        message: "Cannot resolve reference",
-      });
+      if (!resolved) {
+        errors.push({
+          token: reference.referenceRange,
+          message: "Cannot resolve reference",
+        });
+      }
     }
   }
 
