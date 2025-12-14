@@ -929,7 +929,11 @@ export class ModuleSet {
             const newNameChain = nameChain.slice(
               match.kind === "import" ? 0 : 1,
             );
-            return tryResolveReference(ref, newNameChain, importedModule.result);
+            return tryResolveReference(
+              ref,
+              newNameChain,
+              importedModule.result,
+            );
           }
           case "constant":
           case "field":
