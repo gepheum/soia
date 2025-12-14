@@ -138,7 +138,7 @@ class DocCommentsParser {
       const char = content[this.charIndex]!;
       const position = docComment.position + this.charIndex;
 
-      const makeToken: (text: string) => Token = (text: string): Token => ({
+      const makeToken = (text: string): Token => ({
         text: text,
         originalText: text,
         position: position,

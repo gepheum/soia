@@ -18,9 +18,12 @@ import type {
   Method,
   Module,
   MutableArrayType,
-  MutableDocumentation,
+  MutableConstant,
+  MutableDocumentationReference,
+  MutableMethod,
   MutableModule,
   MutableRecord,
+  MutableRecordField,
   MutableRecordLocation,
   MutableResolvedType,
   MutableValue,
@@ -146,6 +149,29 @@ export class ModuleSet {
             errorIsInOtherModule: true,
           });
         }
+      } else if (declaration.kind === "import") {
+        // Make sure that the symbols we are importing exist in the imported
+        // module and are not imported symbols themselves.
+        for (const importedName of declaration.importedNames) {
+          const importedDeclaration =
+            otherModule.result.nameToDeclaration[importedName.text];
+          if (importedDeclaration === undefined) {
+            errors.push({
+              token: importedName,
+              message: "Not found",
+            });
+          } else if (importedDeclaration.kind === "import") {
+            errors.push({
+              token: importedName,
+              message: "Cannot reimport imported record",
+            });
+          } else if (importedDeclaration.kind !== "record") {
+            errors.push({
+              token: importedName,
+              message: "Not a record",
+            });
+          }
+        }
       }
     }
 
@@ -261,8 +287,19 @@ export class ModuleSet {
         if (type) {
           this.validateArrayKeys(type, errors);
         }
+        // Resolve the references in the doc comments of the field.
+        this.resolveDocumentationReferences(
+          {
+            kind: "field",
+            field: field,
+            record: record,
+          },
+          module,
+          errors,
+        );
       }
-      this.resolveDocumentationReferences(record.documentation, module, errors);
+      // Resolve the references in the doc comments of the record.
+      this.resolveDocumentationReferences(record, module, errors);
     }
     // Resolve every request/response type of every method in the module.
     // Store the result in the Method object.
@@ -295,6 +332,8 @@ export class ModuleSet {
           message: `Same number as ${otherMethodName} in ${otherModulePath}`,
         });
       }
+      // Resolve the references in the doc comments of the method.
+      this.resolveDocumentationReferences(method, module, errors);
     }
     // Resolve every constant type. Store the result in the constant object.
     for (const constant of module.constants) {
@@ -306,6 +345,8 @@ export class ModuleSet {
         constant.valueAsDenseJson = //
           this.valueToDenseJson(constant.value, type, errors);
       }
+      // Resolve the references in the doc comments of the constant.
+      this.resolveDocumentationReferences(constant, module, errors);
     }
 
     ensureAllImportsAreUsed(module, usedImports, errors);
@@ -804,16 +845,161 @@ export class ModuleSet {
     }
   }
 
+  /** Resolve the references in the doc comments of the given declaration. */
   private resolveDocumentationReferences(
-    documentation: MutableDocumentation,
+    documentee:
+      | MutableConstant
+      | MutableMethod
+      | MutableRecord
+      | MutableRecordField,
     module: Module,
     errors: ErrorSink,
   ): void {
-    for (const piece of documentation.pieces) {
-      if (piece.kind !== "reference") {
+    const documentation =
+      documentee.kind === "field"
+        ? documentee.field.documentation
+        : documentee.documentation;
+
+    const documentationReferences = documentation.pieces.filter(
+      (p): p is MutableDocumentationReference => p.kind === "reference",
+    );
+    if (documentationReferences.length <= 0) {
+      return;
+    }
+
+    // Try to resolve a reference by looking it up in the given scope.
+    // Returns true if resolved, false otherwise.
+    const tryResolveReference = (
+      ref: MutableDocumentationReference,
+      nameChain: readonly Token[],
+      scope: Record | Module,
+    ): boolean => {
+      if (ref.absolute && scope !== module) {
+        return false;
+      }
+      const firstName = nameChain[0]!;
+      const match = scope.nameToDeclaration[firstName.text];
+      if (!match) {
+        return false;
+      }
+      if (nameChain.length === 1) {
+        // Single name: must refer to a declaration.
+        switch (match.kind) {
+          case "constant":
+          case "method":
+          case "record": {
+            ref.referee = match;
+            return true;
+          }
+          case "field": {
+            if (scope.kind !== "record") {
+              throw new TypeError(scope.kind);
+            }
+            ref.referee = {
+              kind: "field",
+              field: match,
+              record: scope,
+            };
+            return true;
+          }
+          case "import":
+          case "import-alias":
+          case "removed":
+            return false;
+        }
+      } else {
+        // Multi-part name: first part must be a naming scope.
+        switch (match.kind) {
+          case "record":
+            return tryResolveReference(ref, nameChain.slice(1), match);
+          case "import":
+          case "import-alias": {
+            if (scope !== module) {
+              // Cannot refer to other module's imports.
+              return false;
+            }
+            const { resolvedModulePath } = match;
+            if (!resolvedModulePath) {
+              return false;
+            }
+            const importedModule = this.modules.get(resolvedModulePath!);
+            if (!importedModule?.result) {
+              return false;
+            }
+            const newNameChain = nameChain.slice(
+              match.kind === "import" ? 0 : 1,
+            );
+            return tryResolveReference(ref, newNameChain, importedModule.result);
+          }
+          case "constant":
+          case "field":
+          case "method":
+          case "removed":
+            return false;
+        }
+      }
+    };
+
+    const { recordMap } = this;
+    // Build list of naming scopes to search, in order of priority.
+    const scopes: Array<Record | Module> = [];
+    const pushRecordAncestorsToScopes = (record: Record): void => {
+      const { key } = record;
+      const location = recordMap.get(key)!;
+      const ancestors = [...location.recordAncestors].reverse();
+      for (const ancestor of ancestors) {
+        scopes.push(ancestor);
+      }
+    };
+    const pushTypeToScopes = (type: ResolvedType | undefined): void => {
+      if (type) {
+        const recordKey = tryFindRecordForType(type);
+        if (recordKey) {
+          const { record } = recordMap.get(recordKey)!;
+          scopes.push(record);
+        }
+      }
+    };
+    switch (documentee.kind) {
+      case "constant": {
+        scopes.push(module);
+        pushTypeToScopes(documentee.type);
+        break;
+      }
+      case "field": {
+        const { field, record } = documentee;
+        pushRecordAncestorsToScopes(record);
+        scopes.push(module);
+        pushTypeToScopes(field.type);
+        break;
+      }
+      case "method": {
+        scopes.push(module);
+        pushTypeToScopes(documentee.requestType);
+        break;
+      }
+      case "record": {
+        pushRecordAncestorsToScopes(documentee);
+        scopes.push(module);
+        break;
+      }
+    }
+
+    // Resolve each reference by searching through scopes in priority order.
+    for (const reference of documentationReferences) {
+      const { nameChain } = reference;
+      if (nameChain.length <= 0) {
         continue;
       }
-      // TODO...
+      for (const scope of scopes) {
+        if (tryResolveReference(reference, nameChain, scope)) {
+          return;
+        }
+      }
+      errors.push({
+        token: reference.referenceRange,
+        message: "Cannot resolve reference",
+      });
     }
   }
 
@@ -1023,12 +1209,12 @@ class TypeResolver {
       } else if (newIt.kind === "record") {
         it = newIt;
       } else if (newIt.kind === "import" || newIt.kind === "import-alias") {
-        const cannotReimportError = (): SkirError => ({
+        const transitiveImportError = (): SkirError => ({
           token: namePart,
-          message: `Cannot reimport imported name '${name}'`,
+          message: "Cannot refer to imports of imported module",
         });
         if (i !== 0) {
-          errors.push(cannotReimportError());
+          errors.push(transitiveImportError());
           return undefined;
         }
         usedImports.add(name);
@@ -1052,7 +1238,7 @@ class TypeResolver {
           if (!newIt || newIt.kind !== "record") {
             this.errors.push(
               newIt.kind === "import" || newIt.kind === "import-alias"
-                ? cannotReimportError()
+                ? transitiveImportError()
                 : makeNotARecordError(namePart),
             );
             return undefined;
@@ -1189,4 +1375,17 @@ function resolveModulePath(
     return undefined;
   }
   return modulePath;
+}
+
+function tryFindRecordForType(type: ResolvedType): RecordKey | null {
+  switch (type.kind) {
+    case "array":
+      return tryFindRecordForType(type.item);
+    case "optional":
+      return tryFindRecordForType(type.other);
+    case "record":
+      return type.key;
+    case "primitive":
+      return null;
+  }
 }

@@ -485,11 +485,13 @@ export type DocumentationPiece<Mutable extends boolean = boolean> =
   | DocumentationReference<Mutable>;
 
 /** Reference to a field within a record. */
-export interface RecordField {
+export interface RecordField<Mutable extends boolean = boolean> {
   readonly kind: "field";
   readonly record: Record;
-  readonly field: Field;
+  readonly field: Field<Mutable>;
 }
+
+export type MutableRecordField = RecordField<true>;
 
 export interface MutableDocumentationReference {
   readonly kind: "reference";

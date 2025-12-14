@@ -858,8 +858,9 @@ describe("module set", () => {
             {
               token: {
                 text: "Foo",
+                position: 18,
               },
-              message: "Cannot reimport imported name 'Foo'",
+              message: "Cannot reimport imported record",
             },
           ],
         });
@@ -883,7 +884,7 @@ describe("module set", () => {
         fakeFileReader.pathToCode.set(
           "path/to/root/path/to/module",
           `
-          import foo from "./bar";
+          import foo, DoesNotExist from "./bar";
           struct Zoo { foo: foo.Foo; }
         `,
         );
@@ -896,8 +897,15 @@ describe("module set", () => {
             {
               token: {
                 text: "foo",
+                position: 18,
               },
-              message: "Cannot reimport imported name 'foo'",
+              message: "Not a record",
+            },
+            {
+              token: {
+                text: "DoesNotExist",
+              },
+              message: "Not found",
             },
           ],
         });
@@ -935,7 +943,7 @@ describe("module set", () => {
               token: {
                 text: "Foo",
               },
-              message: "Cannot reimport imported name 'Foo'",
+              message: "Cannot refer to imports of imported module",
             },
           ],
         });
@@ -973,7 +981,7 @@ describe("module set", () => {
               token: {
                 text: "foo",
               },
-              message: "Cannot reimport imported name 'foo'",
+              message: "Cannot refer to imports of imported module",
             },
           ],
         });
