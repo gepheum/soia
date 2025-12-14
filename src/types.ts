@@ -253,7 +253,7 @@ export interface MutableField<Mutable extends boolean = true> {
   readonly kind: "field";
   readonly name: Token;
   readonly number: number;
-  readonly documentation: Documentation<Mutable>;
+  readonly doc: Doc<Mutable>;
   /** May only be undefined if the field is a constant in an enum. */
   readonly unresolvedType: UnresolvedType | undefined;
   /** May only be undefined if the field is a constant in an enum. */
@@ -319,7 +319,7 @@ export interface Record<Mutable extends boolean = boolean> {
   readonly key: RecordKey;
   readonly name: Token;
   readonly recordType: "struct" | "enum";
-  readonly documentation: Documentation<Mutable>;
+  readonly doc: Doc<Mutable>;
   /** Maps a field or nested record name to the corresponding declaration. */
   readonly nameToDeclaration: { [n: string]: RecordLevelDeclaration<Mutable> };
   readonly declarations: ReadonlyArray<RecordLevelDeclaration<Mutable>>;
@@ -374,7 +374,7 @@ export type ImportAlias<Mutable extends boolean = boolean> =
 export interface MutableMethod<Mutable extends boolean = true> {
   readonly kind: "method";
   readonly name: Token;
-  readonly documentation: Documentation<Mutable>;
+  readonly doc: Doc<Mutable>;
   readonly unresolvedRequestType: UnresolvedType;
   readonly unresolvedResponseType: UnresolvedType;
   requestType: ResolvedType<Mutable> | undefined;
@@ -394,7 +394,7 @@ export type Method<Mutable extends boolean = boolean> = //
 export interface MutableConstant<Mutable extends boolean = true> {
   readonly kind: "constant";
   readonly name: Token;
-  readonly documentation: Documentation<Mutable>;
+  readonly doc: Doc<Mutable>;
   readonly unresolvedType: UnresolvedType;
   type: ResolvedType<Mutable> | undefined;
   readonly value: Value;
@@ -471,18 +471,18 @@ export type DenseJson = null | boolean | number | string | readonly DenseJson[];
  * User-written documentation associated with a declaration.
  * Result of parsing the doc comments.
  */
-export interface Documentation<Mutable extends boolean = boolean> {
-  pieces: readonly DocumentationPiece<Mutable>[];
+export interface Doc<Mutable extends boolean = boolean> {
+  pieces: readonly DocPiece<Mutable>[];
 }
 
-export type MutableDocumentation = Documentation<true>;
+export type MutableDoc = Doc<true>;
 
-export type DocumentationPiece<Mutable extends boolean = boolean> =
+export type DocPiece<Mutable extends boolean = boolean> =
   | {
       kind: "text";
       text: string;
     }
-  | DocumentationReference<Mutable>;
+  | DocReference<Mutable>;
 
 /** Reference to a field within a record. */
 export interface RecordField<Mutable extends boolean = boolean> {
@@ -493,7 +493,7 @@ export interface RecordField<Mutable extends boolean = boolean> {
 
 export type MutableRecordField = RecordField<true>;
 
-export interface MutableDocumentationReference {
+export interface MutableDocReference {
   readonly kind: "reference";
   readonly docComment: Token;
   readonly referenceRange: Token;
@@ -508,10 +508,10 @@ export interface MutableDocumentationReference {
 }
 
 /** Reference to a symbol from a doc comment ( [...] ). */
-export type DocumentationReference<Mutable extends boolean = boolean> = //
+export type DocReference<Mutable extends boolean = boolean> = //
   Mutable extends true //
-    ? MutableDocumentationReference
-    : Readonly<MutableDocumentationReference>;
+    ? MutableDocReference
+    : Readonly<MutableDocReference>;
 
 /** A declaration which can appear at the top-level of a module. */
 export type ModuleLevelDeclaration<Mutable extends boolean = boolean> =

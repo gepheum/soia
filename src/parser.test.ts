@@ -166,13 +166,13 @@ describe("module parser", () => {
       result: {
         nameToDeclaration: {
           Foo: {
-            documentation: {},
+            doc: {},
             nameToDeclaration: {
               x: {
-                documentation: {},
+                doc: {},
               },
               y: {
-                documentation: {},
+                doc: {},
               },
             },
           },
@@ -257,7 +257,7 @@ describe("module parser", () => {
                   text: "value_field",
                 },
                 number: 3,
-                documentation: {},
+                doc: {},
                 unresolvedType: {
                   kind: "primitive",
                 },
@@ -1018,7 +1018,7 @@ describe("module parser", () => {
             name: {
               text: "Search",
             },
-            documentation: {},
+            doc: {},
             unresolvedRequestType: {
               kind: "record",
               nameParts: [
@@ -1216,7 +1216,7 @@ describe("module parser", () => {
             name: {
               text: "FOO",
             },
-            documentation: {},
+            doc: {},
             unresolvedType: {
               kind: "primitive",
               primitive: "string",

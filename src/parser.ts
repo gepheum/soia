@@ -3,7 +3,7 @@ import { parseDocComments } from "./doc_comment_parser.js";
 import { ModuleTokens } from "./tokenizer.js";
 import type {
   Declaration,
-  Documentation,
+  Doc,
   ErrorSink,
   FieldPath,
   Import,
@@ -160,7 +160,7 @@ function parseDeclaration(
   it: TokenIterator,
   parentNode: "module" | "struct" | "enum",
 ): MutableDeclaration | null {
-  const documentation = parseDocumentation(it);
+  const doc = parseDoc(it);
   let recordType: "struct" | "enum" = "enum";
   const parentIsRoot = parentNode === "module";
   const expected = [
@@ -178,22 +178,17 @@ function parseDeclaration(
       recordType = "struct";
     // Falls through.
     case 1:
-      return parseRecord(it, recordType, documentation);
+      return parseRecord(it, recordType, doc);
     case 2:
       return parseRemoved(it, match.token);
     case 3:
-      return parseField(
-        it,
-        match.token,
-        documentation,
-        parentNode as "struct" | "enum",
-      );
+      return parseField(it, match.token, doc, parentNode as "struct" | "enum");
     case 4:
       return parseImport(it);
     case 5:
-      return parseMethod(it, documentation);
+      return parseMethod(it, doc);
     case 6:
-      return parseConstant(it, documentation);
+      return parseConstant(it, doc);
     default:
       return null;
   }
@@ -203,7 +198,7 @@ class RecordBuilder {
   constructor(
     private readonly recordName: Token,
     private readonly recordType: "struct" | "enum",
-    private readonly documentation: Documentation,
+    private readonly doc: Doc,
     private readonly stableId: number | null,
     private readonly errors: ErrorSink,
   ) {}
@@ -341,7 +336,7 @@ class RecordBuilder {
       key: key,
       name: this.recordName,
       recordType: this.recordType,
-      documentation: this.documentation,
+      doc: this.doc,
       nameToDeclaration: this.nameToDeclaration,
       declarations: Object.values(this.nameToDeclaration),
       fields: fields,
@@ -370,7 +365,7 @@ interface InlineRecordContext {
 function parseRecord(
   it: TokenIterator,
   recordType: "struct" | "enum",
-  documentation: Documentation,
+  doc: Doc,
   inlineContext?: InlineRecordContext,
 ): MutableRecord | null {
   // A struct or an enum.
@@ -415,7 +410,7 @@ function parseRecord(
   const builder = new RecordBuilder(
     nameToken,
     recordType,
-    documentation,
+    doc,
     stableId,
     it.errors,
   );
@@ -431,7 +426,7 @@ function parseRecord(
 function parseField(
   it: TokenIterator,
   name: Token,
-  documentation: Documentation,
+  doc: Doc,
   recordType: "struct" | "enum",
 ): MutableField | null {
   // May only be undefined if the type is an enum.
@@ -483,7 +478,7 @@ function parseField(
           kind: "field",
           name: name,
           number: number,
-          documentation: documentation,
+          doc: doc,
           unresolvedType: type,
           // Will be populated at a later stage.
           type: undefined,
@@ -827,10 +822,7 @@ function parseImportGivenNames(
   };
 }
 
-function parseMethod(
-  it: TokenIterator,
-  documentation: Documentation,
-): MutableMethod | null {
+function parseMethod(it: TokenIterator, doc: Doc): MutableMethod | null {
   const nameMatch = it.expectThenNext([TOKEN_IS_IDENTIFIER]);
   if (nameMatch.case < 0) {
     return null;
@@ -877,7 +869,7 @@ function parseMethod(
   return {
     kind: "method",
     name: nameMatch.token,
-    documentation: documentation,
+    doc: doc,
     unresolvedRequestType: requestType,
     unresolvedResponseType: responseType,
     // Will be populated at a later stage.
@@ -891,10 +883,7 @@ function parseMethod(
   };
 }
 
-function parseConstant(
-  it: TokenIterator,
-  documentation: Documentation,
-): MutableConstant | null {
+function parseConstant(it: TokenIterator, doc: Doc): MutableConstant | null {
   const nameMatch = it.expectThenNext([TOKEN_IS_IDENTIFIER]);
   if (nameMatch.case < 0) {
     return null;
@@ -918,7 +907,7 @@ function parseConstant(
   return {
     kind: "constant",
     name: nameMatch.token,
-    documentation: documentation,
+    doc: doc,
     unresolvedType: type,
     type: undefined,
     value: value,
@@ -1048,7 +1037,7 @@ function parseArrayValue(it: TokenIterator): MutableValue[] | null {
   }
 }
 
-function parseDocumentation(it: TokenIterator): Documentation {
+function parseDoc(it: TokenIterator): Doc {
   const docComments: Token[] = [];
   while (it.current.startsWith("///")) {
     docComments.push(it.currentToken);
@@ -1059,7 +1048,7 @@ function parseDocumentation(it: TokenIterator): Documentation {
   return result.result;
 }
 
-const EMPTY_DOC: Documentation = {
+const EMPTY_DOC: Doc = {
   pieces: [],
 };
 

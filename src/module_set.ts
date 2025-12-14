@@ -19,7 +19,7 @@ import type {
   Module,
   MutableArrayType,
   MutableConstant,
-  MutableDocumentationReference,
+  MutableDocReference,
   MutableMethod,
   MutableModule,
   MutableRecord,
@@ -288,7 +288,7 @@ export class ModuleSet {
           this.validateArrayKeys(type, errors);
         }
         // Resolve the references in the doc comments of the field.
-        this.resolveDocumentationReferences(
+        this.resolveDocReferences(
           {
             kind: "field",
             field: field,
@@ -299,7 +299,7 @@ export class ModuleSet {
         );
       }
       // Resolve the references in the doc comments of the record.
-      this.resolveDocumentationReferences(record, module, errors);
+      this.resolveDocReferences(record, module, errors);
     }
     // Resolve every request/response type of every method in the module.
     // Store the result in the Method object.
@@ -333,7 +333,7 @@ export class ModuleSet {
         });
       }
       // Resolve the references in the doc comments of the method.
-      this.resolveDocumentationReferences(method, module, errors);
+      this.resolveDocReferences(method, module, errors);
     }
     // Resolve every constant type. Store the result in the constant object.
     for (const constant of module.constants) {
@@ -346,7 +346,7 @@ export class ModuleSet {
           this.valueToDenseJson(constant.value, type, errors);
       }
       // Resolve the references in the doc comments of the constant.
-      this.resolveDocumentationReferences(constant, module, errors);
+      this.resolveDocReferences(constant, module, errors);
     }
 
     ensureAllImportsAreUsed(module, usedImports, errors);
@@ -846,7 +846,7 @@ export class ModuleSet {
   }
 
   /** Resolve the references in the doc comments of the given declaration. */
-  private resolveDocumentationReferences(
+  private resolveDocReferences(
     documentee:
       | MutableConstant
       | MutableMethod
@@ -855,22 +855,20 @@ export class ModuleSet {
     module: Module,
     errors: ErrorSink,
   ): void {
-    const documentation =
-      documentee.kind === "field"
-        ? documentee.field.documentation
-        : documentee.documentation;
+    const doc =
+      documentee.kind === "field" ? documentee.field.doc : documentee.doc;
 
-    const documentationReferences = documentation.pieces.filter(
-      (p): p is MutableDocumentationReference => p.kind === "reference",
+    const docReferences = doc.pieces.filter(
+      (p): p is MutableDocReference => p.kind === "reference",
     );
-    if (documentationReferences.length <= 0) {
+    if (docReferences.length <= 0) {
       return;
     }
 
     // Try to resolve a reference by looking it up in the given scope.
     // Returns true if resolved, false otherwise.
     const tryResolveReference = (
-      ref: MutableDocumentationReference,
+      ref: MutableDocReference,
       nameChain: readonly Token[],
       scope: Record | Module,
     ): boolean => {
@@ -990,7 +988,7 @@ export class ModuleSet {
     }
 
     // Resolve each reference by searching through scopes in priority order.
-    for (const reference of documentationReferences) {
+    for (const reference of docReferences) {
       const { nameChain } = reference;
       if (nameChain.length <= 0) {
         continue;

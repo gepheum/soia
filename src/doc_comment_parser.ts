@@ -1,22 +1,20 @@
 import { assert } from "node:console";
 import {
-  Documentation,
-  DocumentationPiece,
-  DocumentationReference,
+  Doc,
+  DocPiece,
+  DocReference,
   Result,
   SkirError,
   Token,
 } from "./types.js";
 
-export function parseDocComments(
-  docComments: readonly Token[],
-): Result<Documentation> {
+export function parseDocComments(docComments: readonly Token[]): Result<Doc> {
   const parser = new DocCommentsParser(docComments);
   return parser.parse();
 }
 
 class DocCommentsParser {
-  private readonly pieces: DocumentationPiece[] = [];
+  private readonly pieces: DocPiece[] = [];
   private readonly errors: SkirError[] = [];
   private currentText = "";
   private docCommentIndex = -1;
@@ -25,7 +23,7 @@ class DocCommentsParser {
 
   constructor(private readonly docComments: readonly Token[]) {}
 
-  parse(): Result<Documentation> {
+  parse(): Result<Doc> {
     while (this.nextDocComment()) {
       this.parseCurrentDocComment();
     }
@@ -97,7 +95,7 @@ class DocCommentsParser {
     }
   }
 
-  private parseReference(): DocumentationReference {
+  private parseReference(): DocReference {
     const { content, docComment } = this;
 
     const leftBracketCharIndex = this.charIndex;
