@@ -1800,6 +1800,7 @@ describe("module set", () => {
           struct Outer {
             /// Reference to [.Bar]
             struct Inner {}
+            struct Bar {}
           }
 
           struct Bar {}
@@ -1824,10 +1825,16 @@ describe("module set", () => {
                     kind: "reference",
                     absolute: true,
                     nameChain: [{ text: "Bar" }],
-                    referee: { kind: "record", name: { text: "Bar" } },
+                    referee: {
+                      kind: "record",
+                      name: { text: "Bar", colNumber: 17 },
+                    },
                   },
                 ],
               },
+            },
+            {
+              name: { text: "Bar", colNumber: 19 },
             },
           ],
         },
